@@ -1,0 +1,38 @@
+{
+  "routes": {
+    "training:M": [
+      {
+        "clinicId": "opd-1"
+      },
+      {
+        "clinicId": "lab"
+      },
+      {
+        "clinicId": "xray"
+      }
+    ],
+    "training:F": [
+      {
+        "clinicId": "women-reception",
+        "womenOnly": true
+      },
+      {
+        "clinicId": "opd-1"
+      },
+      {
+        "clinicId": "lab"
+      }
+    ],
+    "recruit:M": [
+      {
+        "clinicId": "opd-2"
+      },
+      {
+        "clinicId": "dental"
+      },
+      {
+        "clinicId": "lab"
+      }
+    ]
+  }
+}

@@ -3,6 +3,7 @@ import { LoginPage } from './components/LoginPage'
 import { ExamSelectionPage } from './components/ExamSelectionPage'
 import { PatientPage } from './components/PatientPage'
 import { AdminPage } from './components/AdminPage'
+import { QrScanPage } from './components/QrScanPage'
 import EnhancedThemeSelector from './components/EnhancedThemeSelector'
 import api from './lib/api'
 
@@ -26,6 +27,12 @@ function App() {
   useEffect(() => {
     // Set initial language and direction
     setCurrentLanguage(language)
+
+    // Check URL for QR scan
+    if (window.location.pathname.includes('/qr') || window.location.search.includes('token=')) {
+      setCurrentView('qrscan')
+      return
+    }
 
     // Check URL for admin access
     if (window.location.pathname.includes('/admin') || window.location.search.includes('admin=true')) {
@@ -263,6 +270,13 @@ function App() {
 
       {/* المحتوى الرئيسي */}
       <main className="relative z-10">
+        {currentView === 'qrscan' && (
+          <QrScanPage
+            language={language}
+            toggleLanguage={toggleLanguage}
+          />
+        )}
+
         {currentView === 'login' && (
           <LoginPage
             onLogin={handleLogin}

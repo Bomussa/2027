@@ -35,6 +35,7 @@ import { t } from '../lib/i18n'
 import api from '../lib/api'
 import AdminQueueMonitor from './AdminQueueMonitor'
 import AdminPINMonitor from './AdminPINMonitor'
+import { AdminQrManager } from './AdminQrManager'
 
 export function EnhancedAdminDashboard({ language, onLogout }) {
   const [stats, setStats] = useState(null)
@@ -245,6 +246,11 @@ export function EnhancedAdminDashboard({ language, onLogout }) {
           <div data-test="admin-queue-section">
             <AdminQueueMonitor clinicId="clinic1" autoRefresh={true} refreshInterval={5000} />
           </div>
+        </div>
+
+        {/* QR Code Manager */}
+        <div className="mb-8" data-test="admin-qr-section">
+          <AdminQrManager language={language} />
         </div>
 
         {/* Main Content */}

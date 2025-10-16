@@ -1,8 +1,8 @@
 // محرك المسارات الديناميكية (Path Engine) - النظام الرسمي
 import settings from '../../data/settings.json'
 
-// مسارات الفحص حسب النوع
-const EXAM_PATHS = {
+// المسارات الأساسية حسب النوع
+const BASE_EXAM_PATHS = {
   'recruitment': ['lab', 'vitals', 'dental', 'eye', 'ent', 'surgery', 'internal', 'final'],
   'promotion': ['lab', 'vitals', 'internal', 'final'],
   'transfer': ['lab', 'vitals', 'surgery', 'final'],
@@ -32,12 +32,49 @@ class PathEngine {
     this.patientPaths = new Map() // patientId -> { examType, currentStep, path, history }
   }
 
-  getPathForExam(examType) {
-    const path = EXAM_PATHS[examType]
-    if (!path) {
+  // توليد مسار ديناميكي عشوائي
+  generateDynamicPath(examType) {
+    const basePath = BASE_EXAM_PATHS[examType]
+    if (!basePath) {
       throw new Error(`Unknown exam type: ${examType}`)
     }
-    return [...path] // نسخة من المسار
+
+    // نسخ المسار الأساسي
+    const path = [...basePath]
+    
+    // العيادات الثابتة (لا يتم تبديلها)
+    const fixedClinics = ['lab', 'vitals', 'final']
+    
+    // العيادات القابلة للتبديل (العيادات بين vitals و final)
+    const startIndex = path.indexOf('vitals') + 1
+    const endIndex = path.indexOf('final')
+    
+    if (startIndex < endIndex && settings.ALLOW_DYNAMIC_ROUTES) {
+      // استخراج العيادات القابلة للتبديل
+      const middleClinics = path.slice(startIndex, endIndex)
+      
+      // خلط العيادات بشكل عشوائي (Fisher-Yates shuffle)
+      for (let i = middleClinics.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [middleClinics[i], middleClinics[j]] = [middleClinics[j], middleClinics[i]]
+      }
+      
+      // إعادة بناء المسار
+      const newPath = [
+        ...path.slice(0, startIndex),
+        ...middleClinics,
+        ...path.slice(endIndex)
+      ]
+      
+      return newPath
+    }
+    
+    return path
+  }
+
+  getPathForExam(examType) {
+    // توليد مسار ديناميكي جديد لكل مريض
+    return this.generateDynamicPath(examType)
   }
 
   async initializePatientPath(patientId, examType) {
@@ -170,5 +207,5 @@ class PathEngine {
 const pathEngine = new PathEngine()
 
 export default pathEngine
-export { PathEngine, CLINIC_NAMES, EXAM_PATHS }
+export { PathEngine, CLINIC_NAMES, BASE_EXAM_PATHS as EXAM_PATHS }
 

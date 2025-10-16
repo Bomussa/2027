@@ -58,6 +58,7 @@ GRANT ALL PRIVILEGES ON DATABASE medical_center TO admin;
 npm install --legacy-peer-deps
 
 # بناء التطبيق (React Frontend باستخدام Vite)
+# ينتج ملفات JavaScript و CSS محسّنة في مجلد /dist
 npm run build
 ```
 

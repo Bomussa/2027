@@ -1,5 +1,1 @@
-{
-  "scripts": {
-    "build": "npm run build:frontend && npm run build:backend"
-  }
-}
+{"scripts":{"build:frontend":"vite build","build:backend":"tsc -p tsconfig.json","build":"npm run build:frontend && npm run build:backend"}}

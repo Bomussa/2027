@@ -1,4 +1,6 @@
 // محرك الطوابير (Queue Engine) - النظام الرسمي
+import eventBus from './event-bus.js'
+import notificationEngine from './notification-engine.js'
 import settings from '../../data/settings.json'
 
 class QueueEngine {
@@ -66,6 +68,16 @@ class QueueEngine {
     }
 
     queue.waiting.push(entry)
+    
+    // إرسال إشعار تحديث الطابور
+    const position = queue.waiting.length
+    eventBus.emit('queue:update', {
+      patientId,
+      clinicId,
+      position,
+      totalWaiting: queue.waiting.length
+    })
+    
     return entry
   }
 
@@ -83,6 +95,35 @@ class QueueEngine {
     queue.current = next.number
     queue.lastCalled = next
     queue.history.push(next)
+    
+    // إرسال إشعار "حان دورك"
+    eventBus.emit('queue:your_turn', {
+      patientId: next.patientId,
+      clinicId,
+      clinicName: clinicId, // سيتم تحسينه لاحقاً
+      number: next.number
+    })
+    
+    // تحديث موقع باقي المنتظرين
+    queue.waiting.forEach((entry, index) => {
+      const position = index + 1
+      eventBus.emit('queue:update', {
+        patientId: entry.patientId,
+        clinicId,
+        position,
+        totalWaiting: queue.waiting.length
+      })
+      
+      // إشعار "اقترب دورك" للمراكز 1-3
+      if (position <= 3) {
+        eventBus.emit('queue:near_turn', {
+          patientId: entry.patientId,
+          clinicId,
+          clinicName: clinicId,
+          position
+        })
+      }
+    })
 
     return next
   }

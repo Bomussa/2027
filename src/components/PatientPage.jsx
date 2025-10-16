@@ -8,8 +8,18 @@ import { t } from '../lib/i18n'
 import api from '../lib/api'
 import enhancedApi from '../lib/enhanced-api'
 import { ZFDTicketDisplay, ZFDBanner } from './ZFDTicketDisplay'
+import NotificationPanel from './NotificationPanel'
 
 export function PatientPage({ patientData, onLogout, language, toggleLanguage }) {
+  // تفعيل نظام الإشعارات الفوري
+  useEffect(() => {
+    if (patientData?.id) {
+      import('../core/notification-engine.js').then(module => {
+        const notificationEngine = module.default
+        // الاشتراك في الإشعارات سيتم عبر NotificationPanel
+      })
+    }
+  }, [patientData?.id])
   const [stations, setStations] = useState([])
   const [pinInput, setPinInput] = useState('')
   const [selectedStation, setSelectedStation] = useState(null)
@@ -340,6 +350,9 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
           </Button>
         </div>
       </div>
+      
+      {/* لوحة الإشعارات الفورية - تظهر فقط بعد دخول عيادة */}
+      {stations.some(s => s.isEntered) && <NotificationPanel patientId={patientData?.id} />}
     </div>
   )
 }

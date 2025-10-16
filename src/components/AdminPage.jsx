@@ -25,6 +25,7 @@ import { themes } from '../lib/utils'
 import { enhancedMedicalThemes } from '../lib/enhanced-themes'
 import { t } from '../lib/i18n'
 import api from '../lib/api'
+import NotificationPanel from './NotificationPanel'
 
 export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, onThemeChange }) {
   const [currentView, setCurrentView] = useState('dashboard')
@@ -658,6 +659,9 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
           {currentView === 'settings' && renderSettings()}
         </main>
       </div>
+      
+      {/* لوحة الإشعارات الفورية للإدارة */}
+      <NotificationPanel isAdmin={true} />
     </div>
   )
 }

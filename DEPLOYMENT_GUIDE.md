@@ -54,13 +54,10 @@ GRANT ALL PRIVILEGES ON DATABASE medical_center TO admin;
 
 ```powershell
 # تثبيت حزم npm
-npm install
+npm install --legacy-peer-deps
 
-# بناء Backend
-npm run build:backend
-
-# بناء Frontend (اختياري)
-npm run build:frontend
+# بناء Frontend (React + Vite)
+npm run build
 ```
 
 ---

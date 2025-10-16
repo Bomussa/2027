@@ -6,6 +6,8 @@ import { Lock, Unlock, Clock, Globe, LogIn, LogOut } from 'lucide-react'
 import { getMedicalPathway, calculateWaitTime, examTypes, formatTime } from '../lib/utils'
 import { t } from '../lib/i18n'
 import api from '../lib/api'
+import enhancedApi from '../lib/enhanced-api'
+import { ZFDTicketDisplay, ZFDBanner } from './ZFDTicketDisplay'
 
 export function PatientPage({ patientData, onLogout, language, toggleLanguage }) {
   const [stations, setStations] = useState([])
@@ -13,6 +15,8 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
   const [selectedStation, setSelectedStation] = useState(null)
   const [loading, setLoading] = useState(false)
   const [activeTicket, setActiveTicket] = useState(null)
+  const [currentNotice, setCurrentNotice] = useState(null)
+  const [routeWithZFD, setRouteWithZFD] = useState(null)
 
   useEffect(() => {
     // Get stations for the patient's exam type and gender
@@ -27,6 +31,37 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
       isEntered: false
     })))
   }, [patientData.queueType, patientData.gender])
+
+  // Fetch route with ZFD validation
+  useEffect(() => {
+    if (patientData?.id) {
+      enhancedApi.getRoute(patientData.id)
+        .then(data => {
+          if (data?.route) {
+            setRouteWithZFD(data)
+          }
+        })
+        .catch(err => console.warn('Route fetch failed:', err))
+    }
+  }, [patientData?.id])
+
+  // Connect to SSE for real-time notifications
+  useEffect(() => {
+    const eventSource = enhancedApi.connectSSE((notice) => {
+      // Filter notices for this patient only
+      if (notice.visitId === patientData?.id || !notice.visitId) {
+        setCurrentNotice(notice)
+        enhancedApi.playNotificationSound()
+
+        // Auto-dismiss after 10 seconds
+        setTimeout(() => setCurrentNotice(null), 10000)
+      }
+    })
+
+    return () => {
+      if (eventSource) eventSource.close()
+    }
+  }, [patientData?.id])
 
   // أزلنا فتح العيادة عبر PIN: PIN فقط لتأكيد الخروج من العيادة المحددة
 
@@ -125,7 +160,15 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
   }
 
   return (
-    <div className="min-h-screen p-4">
+    <div className="min-h-screen p-4" data-test="patient-page">
+      {/* Real-time notification banner */}
+      {currentNotice && (
+        <ZFDBanner
+          notice={currentNotice}
+          onDismiss={() => setCurrentNotice(null)}
+        />
+      )}
+
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Language Selector */}
         <div className="absolute top-4 right-4">
@@ -197,17 +240,24 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
                     </div>
                   </div>
 
-                  <div className="grid grid-cols-3 gap-4 text-center">
+                  {/* ZFD-powered ticket display */}
+                  {routeWithZFD && routeWithZFD.route && routeWithZFD.route.length > index && (
+                    <div className="mb-4" data-test="zfd-ticket-section">
+                      <ZFDTicketDisplay step={routeWithZFD.route[index]} />
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-3 gap-4 text-center" data-test="queue-info">
                     <div>
-                      <div className="text-2xl font-bold text-white">{station.current}</div>
+                      <div className="text-2xl font-bold text-white" data-test="current-number">{station.current}</div>
                       <div className="text-gray-400 text-sm">{t('current', language)}</div>
                     </div>
                     <div>
-                      <div className="text-2xl font-bold text-yellow-400">{station.yourNumber || '-'}</div>
+                      <div className="text-2xl font-bold text-yellow-400" data-test="your-number">{station.yourNumber || '-'}</div>
                       <div className="text-gray-400 text-sm">{t('yourNumber', language)}</div>
                     </div>
                     <div>
-                      <div className="text-2xl font-bold text-white">{station.ahead}</div>
+                      <div className="text-2xl font-bold text-white" data-test="ahead-count">{station.ahead}</div>
                       <div className="text-gray-400 text-sm">{t('ahead', language)}</div>
                     </div>
                   </div>
@@ -224,6 +274,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
                           onClick={() => handleClinicEnter(station)}
                           disabled={loading}
                           title={t('enterClinic', language)}
+                          data-test="enter-clinic-btn"
                         >
                           <LogIn className={`icon icon-md me-2 ${station.isEntered ? 'text-green-400' : ''}`} />
                           {t('enterClinic', language)}
@@ -237,12 +288,14 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
                           onChange={(e) => { setSelectedStation(station); setPinInput(e.target.value) }}
                           className="bg-gray-600 border-gray-500 text-white"
                           maxLength={6}
+                          data-test="pin-input"
                         />
                         <Button
                           variant="gradientSecondary"
                           onClick={() => handleClinicExit(station)}
                           disabled={loading || selectedStation?.id !== station.id || !pinInput.trim()}
                           title={t('exitClinic', language)}
+                          data-test="exit-clinic-btn"
                         >
                           <LogOut className="icon icon-md me-2" />
                           {t('exitClinic', language)}

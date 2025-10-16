@@ -33,6 +33,8 @@ import {
 } from 'lucide-react'
 import { t } from '../lib/i18n'
 import api from '../lib/api'
+import AdminQueueMonitor from './AdminQueueMonitor'
+import AdminPINMonitor from './AdminPINMonitor'
 
 export function EnhancedAdminDashboard({ language, onLogout }) {
   const [stats, setStats] = useState(null)
@@ -232,6 +234,19 @@ export function EnhancedAdminDashboard({ language, onLogout }) {
           </Card>
         </div>
 
+        {/* Enhanced Monitoring Sections */}
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
+          {/* PIN Monitor for Clinic 1 */}
+          <div data-test="admin-pin-section">
+            <AdminPINMonitor clinicId="clinic1" autoRefresh={false} />
+          </div>
+
+          {/* Queue Monitor for Clinic 1 */}
+          <div data-test="admin-queue-section">
+            <AdminQueueMonitor clinicId="clinic1" autoRefresh={true} refreshInterval={5000} />
+          </div>
+        </div>
+
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Clinic Occupancy */}
@@ -256,8 +271,8 @@ export function EnhancedAdminDashboard({ language, onLogout }) {
                           {clinic.current_load || 0}/{clinic.capacity || 0}
                         </div>
                         <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${clinic.occupancy_percent > 80 ? 'bg-red-100 text-red-800' :
-                            clinic.occupancy_percent > 60 ? 'bg-yellow-100 text-yellow-800' :
-                              'bg-green-100 text-green-800'
+                          clinic.occupancy_percent > 60 ? 'bg-yellow-100 text-yellow-800' :
+                            'bg-green-100 text-green-800'
                           }`}>
                           {clinic.occupancy_percent || 0}%
                         </div>

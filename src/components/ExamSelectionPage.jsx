@@ -7,7 +7,7 @@ import { t } from '../lib/i18n'
 
 export function ExamSelectionPage({ onExamSelect, onBack, language, toggleLanguage }) {
   return (
-    <div className="min-h-screen flex items-center justify-center p-4">
+    <div className="min-h-screen flex items-center justify-center p-4" data-test="exam-selection-page">
       <div className="w-full max-w-4xl space-y-8">
         {/* Language Selector */}
         <div className="absolute top-4 right-4">
@@ -68,6 +68,7 @@ export function ExamSelectionPage({ onExamSelect, onBack, language, toggleLangua
                   variant="outline"
                   className="h-32 flex-col gap-3 border-gray-600 hover:bg-gray-700/50 hover:border-yellow-500 transition-all duration-200"
                   onClick={() => onExamSelect(exam.id)}
+                  data-test={`exam-option-${exam.id}`}
                 >
                   <div className="text-3xl">{exam.icon}</div>
                   <div className="text-center">

@@ -63,10 +63,10 @@ Settings → Secrets and variables → Actions → New repository secret
 1. سجل الدخول إلى [Cloudflare Dashboard](https://dash.cloudflare.com)
 2. اذهب إلى: Profile → API Tokens
 3. انقر على "Create Token"
-4. استخدم قالب "Edit Cloudflare Workers"
-5. أو أنشئ Custom Token مع الصلاحيات:
+4. اختر "Create Custom Token"
+5. أضف الصلاحيات التالية:
    - Account → Cloudflare Pages → Edit
-   - Zone → Zone → Read
+   - Zone → Zone → Read (اختياري)
 6. انسخ الرمز وأضفه كـ Secret في GitHub
 
 ### 3. الحصول على CLOUDFLARE_ACCOUNT_ID
@@ -134,9 +134,9 @@ dist/
 
 ### مشكلة: النشر فشل على Cloudflare
 **الحل**: تحقق من:
-- صحة CLOUDFLARE_API_TOKEN
+- صحة CLOUDFLARE_API_TOKEN وصلاحياته (يجب أن يتضمن Cloudflare Pages:Edit)
 - صحة CLOUDFLARE_ACCOUNT_ID
-- اسم المشروع في wrangler.toml هو "2027"
+- اسم المشروع في GitHub Actions workflow (.github/workflows/cloudflare-pages.yml) هو "2027"
 
 ### مشكلة: الصفحة فارغة أو بيضاء
 **الحل**:

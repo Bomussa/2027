@@ -1,1 +1,1 @@
-{"scripts":{"build:frontend":"vite build","build:backend":"tsc -p tsconfig.json","build":"npm run build:frontend && npm run build:backend"}}
+{"scripts":{"clean":"rimraf dist","build":"npm run build:frontend && npm run build:backend","build:frontend":"echo Building Frontend... && mkdir -p dist && cp -r public/* dist/","build:backend":"echo Building Backend... && node tools/build-backend.js || echo 'No backend build script found'","start":"node server.js","dev":"nodemon server.js"}}

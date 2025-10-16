@@ -1,0 +1,11 @@
+name = "2027"
+pages_build_output_dir = "dist"
+
+[build]
+command = "npm run build"
+
+[env.production]
+vars = { NODE_VERSION = "18" }
+
+[env.production.build]
+command = "npm run build"

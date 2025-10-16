@@ -3,8 +3,8 @@ import settings from '../../data/settings.json'
 
 class PinEngine {
   constructor() {
-    this.pins = new Map() // clinicId -> current PIN
-    this.usedPins = new Map() // clinicId -> Set of used PINs
+    this.dailyPins = [] // قائمة البينات اليومية العشوائية (20 بين)
+    this.usedPinsIndex = 0 // مؤشر البين الحالي
     this.lastReset = null
     this.init()
   }
@@ -33,42 +33,60 @@ class PinEngine {
     }
   }
 
+  // توليد 20 بين عشوائي
+  generateRandomPins() {
+    const pins = []
+    // إنشاء مصفوفة من 01 إلى 20
+    for (let i = settings.PIN_START; i <= settings.PIN_END; i++) {
+      pins.push(i.toString().padStart(2, '0'))
+    }
+    
+    // خلط المصفوفة بشكل عشوائي (Fisher-Yates shuffle)
+    for (let i = pins.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [pins[i], pins[j]] = [pins[j], pins[i]]
+    }
+    
+    return pins
+  }
+
   resetAll() {
-    this.pins.clear()
-    this.usedPins.clear()
+    // توليد 20 بين عشوائي جديد
+    this.dailyPins = this.generateRandomPins()
+    this.usedPinsIndex = 0
+    
     console.log(`[PIN Engine] Reset completed at ${new Date().toISOString()}`)
+    console.log(`[PIN Engine] Generated ${this.dailyPins.length} random PINs:`, this.dailyPins.join(', '))
   }
 
   async assignNextPin(clinicId) {
     this.checkDailyReset()
 
-    if (!this.usedPins.has(clinicId)) {
-      this.usedPins.set(clinicId, new Set())
+    // إذا لم يتم توليد البينات بعد، قم بتوليدها
+    if (this.dailyPins.length === 0) {
+      this.resetAll()
     }
 
-    const used = this.usedPins.get(clinicId)
-    
-    // البحث عن أول PIN متاح
-    for (let pin = settings.PIN_START; pin <= settings.PIN_END; pin++) {
-      const pinStr = pin.toString().padStart(2, '0')
-      if (!used.has(pinStr)) {
-        used.add(pinStr)
-        this.pins.set(clinicId, pinStr)
-        return {
-          pin: pinStr,
-          clinicId,
-          issuedAt: new Date().toISOString(),
-          expiresAt: this.getNextResetTime()
-        }
-      }
+    // إذا استخدمنا كل البينات، ابدأ من جديد
+    if (this.usedPinsIndex >= this.dailyPins.length) {
+      console.warn('[PIN Engine] All PINs used today, restarting from beginning')
+      this.usedPinsIndex = 0
     }
 
-    throw new Error('No available PINs')
+    const pin = this.dailyPins[this.usedPinsIndex]
+    this.usedPinsIndex++
+
+    return {
+      pin: pin,
+      clinicId,
+      issuedAt: new Date().toISOString(),
+      expiresAt: this.getNextResetTime()
+    }
   }
 
   async verifyPin(clinicId, pin) {
-    const currentPin = this.pins.get(clinicId)
-    return currentPin === pin
+    // التحقق من أن البين موجود في قائمة البينات اليومية
+    return this.dailyPins.includes(pin)
   }
 
   getNextResetTime() {
@@ -89,21 +107,36 @@ class PinEngine {
     return nextReset.toISOString()
   }
 
+  // الحصول على جميع البينات النشطة (لعرضها في لوحة الإدارة)
   getActivePins() {
-    const result = []
-    for (const [clinicId, pin] of this.pins.entries()) {
-      result.push({
-        clinicId,
-        pin,
-        active: true,
-        expiresAt: this.getNextResetTime()
-      })
+    if (this.dailyPins.length === 0) {
+      this.resetAll()
     }
-    return result
+
+    return this.dailyPins.map((pin, index) => ({
+      pin,
+      active: index < this.usedPinsIndex, // البينات المستخدمة
+      available: index >= this.usedPinsIndex, // البينات المتاحة
+      expiresAt: this.getNextResetTime()
+    }))
   }
 
-  deactivatePin(clinicId) {
-    this.pins.delete(clinicId)
+  // الحصول على البينات المتاحة فقط
+  getAvailablePins() {
+    if (this.dailyPins.length === 0) {
+      this.resetAll()
+    }
+
+    return this.dailyPins.slice(this.usedPinsIndex).map(pin => ({
+      pin,
+      available: true,
+      expiresAt: this.getNextResetTime()
+    }))
+  }
+
+  deactivatePin(pin) {
+    // لا حاجة لإلغاء تنشيط البين في النظام العشوائي
+    // البينات تُستخدم بالترتيب العشوائي المحدد مسبقاً
     return true
   }
 }

@@ -54,9 +54,10 @@ GRANT ALL PRIVILEGES ON DATABASE medical_center TO admin;
 
 ```powershell
 # تثبيت حزم npm
+# ملاحظة: --legacy-peer-deps يستخدم لحل تعارضات التبعيات بين بعض المكتبات
 npm install --legacy-peer-deps
 
-# بناء Frontend (React + Vite)
+# بناء التطبيق (React Frontend باستخدام Vite)
 npm run build
 ```
 

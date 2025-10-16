@@ -12,7 +12,7 @@
     "lint": "eslint . --max-warnings=0",
     "typecheck": "echo 'Skipping typecheck'",
     "build": "npm run build:frontend",
-    "build:backend": "echo 'Skipping backend build'",
+    "build:backend": "tsc -p tsconfig.json",
     "build:frontend": "vite build",
     "dev": "vite",
     "preview": "vite preview",
@@ -37,7 +37,7 @@
     "audit:all": "npm run audit:structure && npm run audit:api && npm run audit:functions && npm run cleanup && npm run audit:integration && npm run audit:unused && npm run export:clean",
     "tools:cleanup": "powershell -ExecutionPolicy Bypass -File tools/tools-cleanup.ps1",
     "test:watch": "vitest",
-    "start": "node dist_server/index.js",
+    "start": "node dist_server/api/index.js",
     "start:resilient": "node tools/restart-on-failure.js",
     "deploy:cloudflare": "powershell -ExecutionPolicy Bypass -File tools/deploy/cloudflare.ps1",
     "deploy:cloudflare:official": "powershell -ExecutionPolicy Bypass -File tools/deploy/official-setup.ps1",
@@ -67,6 +67,8 @@
     "cookie-parser": "^1.4.6",
     "cors": "^2.8.5",
     "date-fns": "^2.30.0",
+    "date-fns-tz": "^2.0.1",
+    "hono": "^4.4.12",
     "dotenv": "^17.2.3",
     "express": "^4.19.2",
     "helmet": "^7.1.0",
@@ -87,7 +89,9 @@
   "devDependencies": {
     "@types/cookie-parser": "^1.4.7",
     "@types/express": "^4.17.21",
-    "@types/node": "^18.19.44",
+    "@types/node": "^20.19.0",
+
+
     "@types/pg": "^8.15.5",
     "@types/react": "^18.2.37",
     "@types/react-dom": "^18.2.15",

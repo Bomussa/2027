@@ -74,7 +74,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
     try {
       // إنشاء 20 PIN تلقائياً دائماً (نظام تلقائي)
       const autoPins = []
-      const clinics = ['OPD-1', 'Lab', 'X-Ray', 'Women Reception', 'OPD-2', 'Dental']
+      const clinics = ['المختبر', 'عيادة العيون', 'عيادة الباطنية', 'عيادة الجراحة العامة', 'عيادة العظام والمفاصل', 'عيادة أنف وأذن وحنجرة', 'عيادة النفسية', 'عيادة الأسنان', 'المختبر والأشعة']
       
       for (let i = 1; i <= 20; i++) {
         const pinNumber = i.toString().padStart(2, '0')
@@ -94,7 +94,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
       console.error('Failed to load pins:', error)
       // في حالة الخطأ، إنشاء PINs تلقائياً
       const autoPins = []
-      const clinics = ['OPD-1', 'Lab', 'X-Ray', 'Women Reception', 'OPD-2', 'Dental']
+      const clinics = ['المختبر', 'عيادة العيون', 'عيادة الباطنية', 'عيادة الجراحة العامة', 'عيادة العظام والمفاصل', 'عيادة أنف وأذن وحنجرة', 'عيادة النفسية', 'عيادة الأسنان', 'المختبر والأشعة']
       
       for (let i = 1; i <= 20; i++) {
         const pinNumber = i.toString().padStart(2, '0')

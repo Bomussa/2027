@@ -1,4 +1,4 @@
-name: Auto-Fix npm Lock Conflict + Smart Auto-Deploy (Verified Final)
+name: Auto-Fix npm Lock Conflict + Smart Auto-Deploy (Simplified)
 
 permissions:
   contents: write
@@ -16,27 +16,17 @@ jobs:
 
     steps:
       # ========================
-      # 1️⃣ Pre-check: Validate Secrets
+      # 1️⃣ Validate Secrets
       # ========================
       - name: 🔍 Validate Cloudflare Secrets
         run: |
           echo "🧩 Checking required secrets..."
-          missing=false
-
           if [ -z "${{ secrets.CF_API_TOKEN }}" ]; then
             echo "::error::❌ Missing CF_API_TOKEN (required for deployment)"
-            missing=true
+            exit 1
           fi
           if [ -z "${{ secrets.CF_ACCOUNT_ID }}" ]; then
             echo "::error::❌ Missing CF_ACCOUNT_ID (required for Cloudflare authentication)"
-            missing=true
-          fi
-          if [ -z "${{ secrets.CF_BACKUP_TOKEN }}" ]; then
-            echo "::warning::⚠️ CF_BACKUP_TOKEN not found (Plan B fallback will be disabled)"
-          fi
-
-          if [ "$missing" = true ]; then
-            echo "::error::Stopping workflow due to missing required secrets"
             exit 1
           fi
           echo "✅ All required secrets are present. Proceeding..."
@@ -73,6 +63,7 @@ jobs:
           git config --global user.email "bot@copilot.local"
           git add package-lock.json || true
           git commit -m "fix: sync package-lock.json + audit fixes" || echo "No changes to commit"
+          git pull origin main --rebase || echo "Pull skipped"
           git push origin main || echo "Push skipped"
 
       # ========================
@@ -84,11 +75,9 @@ jobs:
           npm run build || echo "⚠️ Build completed with warnings"
 
       # ========================
-      # 7️⃣ Primary Deploy
+      # 7️⃣ Deploy to Cloudflare Pages
       # ========================
       - name: 🌐 Deploy to Cloudflare Pages
-        id: deploy_primary
-        continue-on-error: true
         uses: cloudflare/pages-action@v1
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
@@ -98,24 +87,10 @@ jobs:
           gitHubToken: ${{ secrets.GITHUB_TOKEN }}
 
       # ========================
-      # 8️⃣ Fallback Plan B Deploy
-      # ========================
-      - name: 🔁 Plan B Fallback Deploy
-        if: steps.deploy_primary.outcome != 'success' && secrets.CF_BACKUP_TOKEN != ''
-        continue-on-error: true
-        uses: cloudflare/pages-action@v1
-        with:
-          apiToken: ${{ secrets.CF_BACKUP_TOKEN }}
-          accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          projectName: 2027
-          directory: dist
-          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
-
-      # ========================
-      # 9️⃣ Final Status
+      # 8️⃣ Final Status
       # ========================
       - name: ✅ Final report
         run: |
           echo "---------------------------------------------"
-          echo "✅ Auto-Fix + Smart Deploy (with Validation) completed successfully"
+          echo "✅ Auto-Fix + Simplified Deploy completed successfully"
           echo "---------------------------------------------"

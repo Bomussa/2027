@@ -7,7 +7,7 @@
   "scripts": {
     "dev": "vite",
     "build": "npm run build:backend && npm run build:frontend",
-    "build:backend": "tsc",
+    "build:backend": "npx tsc",
     "build:frontend": "vite build",
     "preview": "vite preview",
     "start": "node server.js",
@@ -34,6 +34,8 @@
     "react-dom": "^18.2.0",
     "tailwind-merge": "^2.0.0",
     "tailwindcss-animate": "^1.0.7",
+    "tslib": "^2.7.0",
+    "typescript": "^5.6.3",
     "ws": "^8.14.2"
   },
   "devDependencies": {

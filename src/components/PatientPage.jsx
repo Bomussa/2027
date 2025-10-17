@@ -9,16 +9,13 @@ import api from '../lib/api'
 import enhancedApi from '../lib/enhanced-api'
 import { ZFDTicketDisplay, ZFDBanner } from './ZFDTicketDisplay'
 import NotificationPanel from './NotificationPanel'
+import notificationEngine from '../core/notification-engine.js'
 
 export function PatientPage({ patientData, onLogout, language, toggleLanguage }) {
   // تفعيل نظام الإشعارات الفوري
   useEffect(() => {
-    if (patientData?.id) {
-      import('../core/notification-engine.js').then(module => {
-        const notificationEngine = module.default
-        // الاشتراك في الإشعارات سيتم عبر NotificationPanel
-      })
-    }
+    // الاشتراك في الإشعارات سيتم عبر NotificationPanel
+    // notification-engine مُحمل بالفعل بشكل ثابت
   }, [patientData?.id])
   const [stations, setStations] = useState([])
   const [pinInput, setPinInput] = useState('')

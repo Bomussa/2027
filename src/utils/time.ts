@@ -1,6 +1,4 @@
-import { zonedTimeToUtc, utcToZonedTime, format } from 'date-fns-tz';
-
-import CONST from "../../config/constants.json" assert { type: "json" };
+import CONST from "../../config/constants.json" with { type: "json" };
 export const tz = CONST.TIMEZONE as string;
 const pivot = CONST.SERVICE_DAY_PIVOT as string;
 
@@ -9,15 +7,22 @@ export function nowISO() {
 }
 
 export function localDateKeyAsiaQatar(d = new Date()) {
-  const z = utcToZonedTime(d, tz);
+  // Convert to Asia/Qatar timezone (UTC+3)
+  const qatarOffset = 3 * 60; // Qatar is UTC+3
+  const localTime = new Date(d.getTime() + qatarOffset * 60 * 1000);
+  
   const [h, m] = pivot.split(':').map(Number);
-  const pivotDate = new Date(z);
-  pivotDate.setHours(h, m, 0, 0);
-  // قبل 05:00 → ننسب لليوم السابق
-  if (z.getTime() < pivotDate.getTime()) {
-    const y = new Date(z);
-    y.setDate(y.getDate() - 1);
-    return format(y, 'yyyy-MM-dd', { timeZone: tz });
+  const pivotMs = (h * 60 + m) * 60 * 1000;
+  const localDayMs = ((localTime.getUTCHours() * 60 + localTime.getUTCMinutes()) * 60 + localTime.getUTCSeconds()) * 1000;
+  
+  // Before pivot time → attribute to previous day
+  let targetDate = new Date(localTime);
+  if (localDayMs < pivotMs) {
+    targetDate.setUTCDate(targetDate.getUTCDate() - 1);
   }
-  return format(z, 'yyyy-MM-dd', { timeZone: tz });
+  
+  const year = targetDate.getUTCFullYear();
+  const month = String(targetDate.getUTCMonth() + 1).padStart(2, '0');
+  const day = String(targetDate.getUTCDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 }

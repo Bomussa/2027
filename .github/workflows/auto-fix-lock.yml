@@ -9,13 +9,6 @@ on:
 jobs:
   fix-lock:
     runs-on: ubuntu-latest
-
-on:
-  workflow_dispatch:
-
-jobs:
-  fix-lock:
-    runs-on: ubuntu-latest
     permissions:
       contents: write
 

@@ -125,10 +125,12 @@ logs/screenshots/*
 # Build artifacts
 dist_server/
 
-# CI/CD logs (keep directory structure but ignore log files)
-logs/metrics/*.json
-logs/reports/*.md
-logs/*.log
-
-# Keep .gitkeep files in logs directories
-!logs/**/.gitkeep
+# CI/CD logs (keep directory structure)
+logs/*
+!logs/.gitkeep
+!logs/metrics/
+!logs/reports/
+logs/metrics/*
+logs/reports/*
+!logs/metrics/.gitkeep
+!logs/reports/.gitkeep

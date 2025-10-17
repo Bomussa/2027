@@ -1,0 +1,179 @@
+name: PR Management
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+  workflow_dispatch:
+
+jobs:
+  # Job 1: Enforce Single Active PR Policy
+  enforce-single-pr:
+    name: Enforce Single Active PR
+    runs-on: ubuntu-latest
+    if: github.event.action == 'opened' || github.event.action == 'reopened'
+    steps:
+      - name: Check for existing open PRs
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: pullRequests } = await github.rest.pulls.list({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open'
+            });
+            
+            const currentPR = context.payload.pull_request.number;
+            const otherOpenPRs = pullRequests.filter(pr => pr.number !== currentPR);
+            
+            if (otherOpenPRs.length > 0) {
+              const prList = otherOpenPRs.map(pr => `#${pr.number}: ${pr.title}`).join('\n');
+              
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: currentPR,
+                body: `⚠️ **Single Active PR Policy Warning**\n\nThere are other open pull requests:\n\n${prList}\n\nPlease consider closing or merging them before proceeding with this PR to maintain repository cleanliness and avoid conflicts.`
+              });
+              
+              console.log(`⚠️ Warning: ${otherOpenPRs.length} other open PRs found`);
+            } else {
+              console.log('✅ Single PR policy satisfied');
+            }
+
+  # Job 2: PR Validation
+  pr-validation:
+    name: PR Validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate PR title
+        run: |
+          PR_TITLE="${{ github.event.pull_request.title }}"
+          
+          # Check if title follows conventional commit format
+          if echo "$PR_TITLE" | grep -qE "^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?: .+"; then
+            echo "✅ PR title follows conventional commit format"
+          else
+            echo "⚠️ PR title does not follow conventional commit format"
+            echo "Recommended format: type(scope): description"
+            echo "Examples: feat(ui): add mobile menu, fix(api): resolve cors issue"
+          fi
+
+      - name: Check PR size
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const additions = pr.additions;
+            const deletions = pr.deletions;
+            const total = additions + deletions;
+            
+            console.log(`📊 PR Size: +${additions} -${deletions} (${total} total changes)`);
+            
+            let sizeLabel = '';
+            let comment = '';
+            
+            if (total < 100) {
+              sizeLabel = 'size/XS';
+              comment = '✅ This PR is extra small and easy to review.';
+            } else if (total < 300) {
+              sizeLabel = 'size/S';
+              comment = '✅ This PR is small and manageable.';
+            } else if (total < 1000) {
+              sizeLabel = 'size/M';
+              comment = '⚠️ This PR is medium-sized. Consider breaking it into smaller PRs.';
+            } else if (total < 3000) {
+              sizeLabel = 'size/L';
+              comment = '⚠️ This PR is large. Please consider breaking it into smaller, focused PRs.';
+            } else {
+              sizeLabel = 'size/XL';
+              comment = '❌ This PR is very large and difficult to review. Please break it into smaller PRs.';
+            }
+            
+            console.log(comment);
+            
+            // Add size label
+            try {
+              await github.rest.issues.addLabels({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                labels: [sizeLabel]
+              });
+            } catch (error) {
+              console.log('Note: Could not add label (may need to create labels first)');
+            }
+
+  # Job 3: Auto-assign reviewers
+  auto-assign:
+    name: Auto-assign Reviewers
+    runs-on: ubuntu-latest
+    if: github.event.action == 'opened'
+    steps:
+      - name: Auto-assign reviewers
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            
+            // Add comment with instructions
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: pr.number,
+              body: `👋 Thank you for your contribution!\n\n## Review Checklist\n\n- [ ] Code follows project conventions\n- [ ] Build passes successfully\n- [ ] Tests pass (if applicable)\n- [ ] Documentation updated (if needed)\n- [ ] Mobile compatibility verified\n- [ ] Desktop compatibility verified\n\nThe CI/CD pipeline will automatically validate your changes.`
+            });
+
+  # Job 4: PR closed/merged cleanup
+  pr-cleanup:
+    name: PR Cleanup
+    runs-on: ubuntu-latest
+    if: github.event.action == 'closed'
+    steps:
+      - name: Cleanup on PR close
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const merged = pr.merged;
+            
+            if (merged) {
+              console.log('✅ PR was merged successfully');
+              
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body: '🎉 This PR has been successfully merged! Thank you for your contribution.\n\nDeployment will begin automatically if configured.'
+              });
+            } else {
+              console.log('ℹ️ PR was closed without merging');
+            }
+
+  # Job 5: PR Status Summary
+  pr-status:
+    name: PR Status Summary
+    runs-on: ubuntu-latest
+    needs: [pr-validation]
+    if: always()
+    steps:
+      - name: Generate PR summary
+        run: |
+          echo "# 📋 Pull Request Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## PR Details" >> $GITHUB_STEP_SUMMARY
+          echo "- **Number:** #${{ github.event.pull_request.number }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Title:** ${{ github.event.pull_request.title }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Author:** @${{ github.event.pull_request.user.login }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Base:** ${{ github.event.pull_request.base.ref }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Head:** ${{ github.event.pull_request.head.ref }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **State:** ${{ github.event.pull_request.state }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Changes" >> $GITHUB_STEP_SUMMARY
+          echo "- **Additions:** +${{ github.event.pull_request.additions }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Deletions:** -${{ github.event.pull_request.deletions }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Changed Files:** ${{ github.event.pull_request.changed_files }}" >> $GITHUB_STEP_SUMMARY

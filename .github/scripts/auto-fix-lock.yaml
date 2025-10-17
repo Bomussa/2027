@@ -1,4 +1,4 @@
-name: Auto-Fix npm Lock Conflict + Plan B Recovery
+ name: Auto-Fix npm Lock Conflict + Plan B Recovery
 on:
   workflow_dispatch:
   push:

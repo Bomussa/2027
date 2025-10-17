@@ -1,6 +1,6 @@
 # PR Analysis Summary - Quick Reference
 
-**Date:** 2025-10-17  
+**Date:** 2025-10-17 *(Snapshot - Analysis may need to be re-run for current data)*  
 **Repository:** Bomussa/2027  
 **Status:** ✅ Analysis Complete
 

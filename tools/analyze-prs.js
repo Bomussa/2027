@@ -10,6 +10,8 @@
  */
 
 import https from 'https';
+import fs from 'fs';
+import path from 'path';
 
 const REPO_OWNER = 'Bomussa';
 const REPO_NAME = '2027';
@@ -40,7 +42,11 @@ function makeRequest(path) {
 
       res.on('end', () => {
         if (res.statusCode === 200) {
-          resolve(JSON.parse(data));
+          try {
+            resolve(JSON.parse(data));
+          } catch (error) {
+            reject(new Error(`Failed to parse JSON response: ${error.message}`));
+          }
         } else {
           reject(new Error(`HTTP ${res.statusCode}: ${data}`));
         }
@@ -378,9 +384,8 @@ async function main() {
     // Save report to file
     const reportContent = saveReportToFile(prs, redundantGroups, outdatedPRs);
     
-    // Write to file using Node's fs module
-    const fs = await import('fs');
-    const reportPath = '/home/runner/work/2027/2027/PR_ANALYSIS_REPORT.md';
+    // Write to file in the repository root
+    const reportPath = path.join(process.cwd(), 'PR_ANALYSIS_REPORT.md');
     fs.writeFileSync(reportPath, reportContent);
     console.log(`\nReport saved to: PR_ANALYSIS_REPORT.md`);
     

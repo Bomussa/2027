@@ -1,0 +1,40 @@
+name: Auto-Fix npm Lock Conflict
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  fix-lock:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 🧩 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🧠 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 🧹 Clean install to detect lock issues
+        run: |
+          npm install --package-lock-only
+          npm install picomatch@^4.0.3 --save
+          npm audit fix --force
+
+      - name: 🧾 Commit updated lock file
+        run: |
+          git config --global user.name "Copilot AutoFix"
+          git config --global user.email "bot@copilot.local"
+          git add package-lock.json
+          git commit -m "fix: sync package-lock.json with picomatch@^4.0.3" || echo "No changes"
+          git push origin main || echo "Push skipped"
+
+      - name: 🏗️ Rebuild project
+        run: |
+          npm ci
+          npm run build
+
+      - name: ✅ Verify output
+        run: |
+          test -d dist && echo "✅ Build directory exists"

@@ -1,6 +1,4 @@
-.github/workflows/auto-fix-lock.yml
-
- name: Auto-Fix npm Lock Conflict + Plan B Recovery
+name: Auto-Fix npm Lock Conflict + Plan B Recovery
 on:
   workflow_dispatch:
   push:

@@ -145,7 +145,7 @@ npm run preview
 - ✅ Build command: `npm run build`
 - ✅ Output directory: `dist`
 - ✅ Framework preset: Vite
-- ✅ Node version: Compatible with Node 18+
+- ✅ Node version: Compatible with Node 18.x or 20.x (Cloudflare Pages supported versions)
 
 ### Next Steps
 1. Merge this resolution branch into main

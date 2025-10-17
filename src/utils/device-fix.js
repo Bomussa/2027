@@ -57,6 +57,32 @@ function fixScrollBehavior() {
 }
 
 /**
+ * Validate and sanitize URL
+ * @param {string} url - The URL to validate
+ * @returns {string|null} - Valid URL or null
+ */
+function validateUrl(url) {
+  try {
+    // Try to construct a URL object for validation
+    const testUrl = url.startsWith('http://') || url.startsWith('https://') 
+      ? url 
+      : `https://${url}`;
+    
+    const urlObject = new URL(testUrl);
+    
+    // Only allow http and https protocols for security
+    if (urlObject.protocol !== 'http:' && urlObject.protocol !== 'https:') {
+      return null;
+    }
+    
+    return urlObject.href;
+  } catch (e) {
+    // Invalid URL
+    return null;
+  }
+}
+
+/**
  * Handle barcode links in query strings
  * Automatically opens barcode links in the device's default browser
  */
@@ -66,24 +92,27 @@ function handleBarcodeLinks() {
   const barcodeParam = urlParams.get('barcode');
   
   if (barcodeParam) {
-    // Create the full barcode URL
-    const barcodeUrl = barcodeParam.startsWith('http') 
-      ? barcodeParam 
-      : `https://${barcodeParam}`;
+    // Validate and sanitize the URL
+    const barcodeUrl = validateUrl(barcodeParam);
     
-    // Open in default browser
-    // For mobile devices, this will open in the native browser
-    // For desktop, it will open in a new tab
-    window.open(barcodeUrl, '_blank');
-    
-    // Remove the barcode parameter from the URL to clean up
-    urlParams.delete('barcode');
-    const newUrl = urlParams.toString() 
-      ? `${window.location.pathname}?${urlParams.toString()}`
-      : window.location.pathname;
-    
-    // Update URL without reload
-    window.history.replaceState({}, '', newUrl);
+    if (barcodeUrl) {
+      // Open in default browser with security attributes
+      // For mobile devices, this will open in the native browser
+      // For desktop, it will open in a new tab
+      const newWindow = window.open(barcodeUrl, '_blank');
+      if (newWindow) {
+        newWindow.opener = null; // Security: prevent access to opener
+      }
+      
+      // Remove the barcode parameter from the URL to clean up
+      urlParams.delete('barcode');
+      const newUrl = urlParams.toString() 
+        ? `${window.location.pathname}?${urlParams.toString()}`
+        : window.location.pathname;
+      
+      // Update URL without reload
+      window.history.replaceState({}, '', newUrl);
+    }
   }
 }
 
@@ -106,8 +135,5 @@ function initDeviceFixes() {
   }
 }
 
-// Auto-initialize when module is loaded
-initDeviceFixes();
-
-// Export for potential external use
+// Export for external use
 export { detectDevice, addDeviceClass, fixScrollBehavior, handleBarcodeLinks, initDeviceFixes };

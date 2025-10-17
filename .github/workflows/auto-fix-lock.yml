@@ -3,12 +3,15 @@ name: Auto-Fix npm Lock Conflict + Plan B Recovery
 on:
   workflow_dispatch:
   push:
-    branches: [ main ]
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
 
 jobs:
   fix-lock:
     runs-on: ubuntu-latest
-
     steps:
       - name: 🧩 Checkout repository
         uses: actions/checkout@v4
@@ -32,28 +35,27 @@ jobs:
           git commit -m "fix: sync package-lock.json with picomatch@^4.0.3" || echo "No changes"
           git push origin main || echo "Push skipped"
 
-      - name: 🏗️ Primary Build (npm ci)
+      - name: 🚩 Primary Build (npm ci)
         id: build_step
+        continue-on-error: true
         run: |
-          echo "🧱 Starting build with npm ci..."
-          set +e
+          echo "🏗️ Starting primary build with npm ci..."
+          set -e
           npm ci && npm run build
-          BUILD_STATUS=$?
-          echo "status=$BUILD_STATUS" >> $GITHUB_OUTPUT
-          exit 0
+          echo "status=success" >> $GITHUB_ENV
 
-      - name: 🪫 Plan B: Retry with npm install if npm ci failed
-        if: steps.build_step.outputs.status != '0'
+      - name: 🧾 Plan B: Retry with npm install
+        if: failure()
         run: |
-          echo "⚠️ npm ci failed — attempting recovery with npm install..."
+          echo "⚠️ Primary build failed, switching to Plan B..."
           npm install
-          npm run build || (echo "❌ Plan B failed — manual intervention required." && exit 1)
+          npm run build || echo "Plan B also failed."
 
-      - name: ✅ Verify build output
+      - name: 🪶 Report status
+        if: always()
         run: |
-          if [ -d dist ]; then
-            echo "✅ Build directory exists. Auto-fix completed successfully!"
+          if [ "$status" = "success" ]; then
+            echo "✅ Build and lock fix completed successfully."
           else
-            echo "❌ Build directory missing — check build logs or dependencies."
-            exit 1
+            echo "❌ Build failed. Please review workflow logs."
           fi

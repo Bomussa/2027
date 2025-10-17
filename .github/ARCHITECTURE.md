@@ -40,8 +40,8 @@
 │  │  • npm install   │        │  • npm install   │                     │
 │  │  • tsc compile   │        │  • vite build    │                     │
 │  │  • verify output │        │  • verify output │                     │
-│  │  • upload dist_  │        │  • upload dist/  │                     │
-│  │    server/       │        │                  │                     │
+│  │  • upload        │        │  • upload dist/  │                     │
+│  │    dist_server/  │        │                  │                     │
 │  └────────┬─────────┘        └────────┬─────────┘                     │
 │           │                           │                                │
 │           └───────────┬───────────────┘                                │

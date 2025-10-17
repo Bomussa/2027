@@ -1,0 +1,58 @@
+name: Auto-Fix npm Lock Conflict + Plan B Recovery
+on:
+  workflow_dispatch:
+  push:
+    branches: [ main ]
+
+jobs:
+  fix-lock:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: 🧩 Checkout repository
+        uses: actions/checkout@v4
+
+      - name: 🧠 Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: 🧹 Clean install to detect lock issues
+        run: |
+          npm install --package-lock-only
+          npm install picomatch@^4.0.3 --save
+          npm audit fix --force
+
+      - name: 🧾 Commit updated lock file
+        run: |
+          git config --global user.name "Copilot AutoFix"
+          git config --global user.email "bot@copilot.local"
+          git add package-lock.json
+          git commit -m "fix: sync package-lock.json with picomatch@^4.0.3" || echo "No changes"
+          git push origin main || echo "Push skipped"
+
+      - name: 🏗️ Primary Build (npm ci)
+        id: build_step
+        run: |
+          echo "🧱 Starting build with npm ci..."
+          set +e
+          npm ci && npm run build
+          BUILD_STATUS=$?
+          echo "status=$BUILD_STATUS" >> $GITHUB_OUTPUT
+          exit 0
+
+      - name: 🪫 Plan B: Retry with npm install if npm ci failed
+        if: steps.build_step.outputs.status != '0'
+        run: |
+          echo "⚠️ npm ci failed — attempting recovery with npm install..."
+          npm install
+          npm run build || (echo "❌ Plan B failed — manual intervention required." && exit 1)
+
+      - name: ✅ Verify build output
+        run: |
+          if [ -d dist ]; then
+            echo "✅ Build directory exists. Auto-fix completed successfully!"
+          else
+            echo "❌ Build directory missing — check build logs or dependencies."
+            exit 1
+          fi

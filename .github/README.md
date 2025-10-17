@@ -68,4 +68,4 @@ When making significant changes to the project:
 ## Learn More
 
 - [GitHub Copilot Documentation](https://docs.github.com/en/copilot)
-- [Adding Repository Custom Instructions](https://docs.github.com/en/copilot/how-tos/configure-custom-instructions/add-repository-instructions)
+- [Customizing GitHub Copilot](https://docs.github.com/en/copilot/customizing-copilot)

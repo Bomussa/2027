@@ -1,5 +1,15 @@
 name: Auto-Fix npm Lock Conflict + Plan B Recovery
 
+permissions:
+  contents: write
+
+on:
+  workflow_dispatch:
+
+jobs:
+  fix-lock:
+    runs-on: ubuntu-latest
+
 on:
   workflow_dispatch:
 

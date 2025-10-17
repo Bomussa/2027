@@ -1,0 +1,32 @@
+# CODEOWNERS file for protecting critical files
+# These patterns identify critical files that require review before merging
+
+# Core configuration files
+/package.json @Bomussa
+/package-lock.json @Bomussa
+/tsconfig.json @Bomussa
+/vite.config.js @Bomussa
+/tailwind.config.js @Bomussa
+/wrangler.toml @Bomussa
+
+# GitHub workflows and CI/CD
+/.github/workflows/ @Bomussa
+
+# Deployment and infrastructure
+/deploy/ @Bomussa
+/infra/ @Bomussa
+/docker-compose.yml @Bomussa
+
+# Database schemas and migrations
+/db/ @Bomussa
+
+# Critical application files
+/src/server.js @Bomussa
+/src/lib/api.js @Bomussa
+
+# Environment and secrets (if tracked)
+/.env.example @Bomussa
+
+# Documentation that affects deployment
+/DEPLOYMENT_GUIDE.md @Bomussa
+/README.md @Bomussa

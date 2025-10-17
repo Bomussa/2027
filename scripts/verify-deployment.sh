@@ -1,0 +1,220 @@
+#!/bin/bash
+
+# Deployment Verification Script
+# Verifies that a Cloudflare Pages deployment is successful and functional
+
+set -e
+
+# Configuration
+DEPLOYMENT_URL="${DEPLOYMENT_URL:-https://2027-5a0.pages.dev}"
+MAX_WAIT_TIME=300  # 5 minutes
+CHECK_INTERVAL=10   # 10 seconds
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+# Function to wait for deployment
+wait_for_deployment() {
+    local url=$1
+    local elapsed=0
+    
+    echo -e "${BLUE}Waiting for deployment to be ready...${NC}"
+    echo "URL: $url"
+    echo "Max wait time: ${MAX_WAIT_TIME}s"
+    
+    while [ $elapsed -lt $MAX_WAIT_TIME ]; do
+        status=$(curl -s -o /dev/null -w "%{http_code}" "$url" || echo "000")
+        
+        if [ "$status" = "200" ]; then
+            echo -e "\n${GREEN}✓ Deployment is ready! (${elapsed}s)${NC}"
+            return 0
+        fi
+        
+        echo -n "."
+        sleep $CHECK_INTERVAL
+        elapsed=$((elapsed + CHECK_INTERVAL))
+    done
+    
+    echo -e "\n${RED}✗ Deployment timed out after ${MAX_WAIT_TIME}s${NC}"
+    return 1
+}
+
+# Function to verify deployment
+verify_deployment() {
+    local url=$1
+    
+    echo -e "\n${BLUE}Verifying deployment...${NC}"
+    
+    # Check main page
+    echo -n "Checking main page... "
+    status=$(curl -s -o /dev/null -w "%{http_code}" "$url" || echo "000")
+    if [ "$status" = "200" ]; then
+        echo -e "${GREEN}✓${NC}"
+    else
+        echo -e "${RED}✗ (HTTP $status)${NC}"
+        return 1
+    fi
+    
+    # Check for index.html
+    echo -n "Checking index.html... "
+    status=$(curl -s -o /dev/null -w "%{http_code}" "${url}/index.html" || echo "000")
+    if [ "$status" = "200" ]; then
+        echo -e "${GREEN}✓${NC}"
+    else
+        echo -e "${YELLOW}⚠ (HTTP $status)${NC}"
+    fi
+    
+    # Check response time
+    echo -n "Checking response time... "
+    response_time=$(curl -o /dev/null -s -w "%{time_total}" "$url" || echo "0")
+    response_time_ms=$(echo "$response_time * 1000" | bc)
+    
+    if (( $(echo "$response_time_ms < 5000" | bc -l) )); then
+        echo -e "${GREEN}✓ (${response_time}s)${NC}"
+    else
+        echo -e "${YELLOW}⚠ Slow response (${response_time}s)${NC}"
+    fi
+    
+    # Check content type
+    echo -n "Checking content type... "
+    content_type=$(curl -s -I "$url" | grep -i "content-type" | awk '{print $2}' || echo "unknown")
+    if [[ "$content_type" == *"text/html"* ]]; then
+        echo -e "${GREEN}✓ (${content_type})${NC}"
+    else
+        echo -e "${YELLOW}⚠ Unexpected type (${content_type})${NC}"
+    fi
+    
+    # Check for common assets
+    echo -n "Checking assets directory... "
+    status=$(curl -s -o /dev/null -w "%{http_code}" "${url}/assets/" || echo "000")
+    if [ "$status" = "200" ] || [ "$status" = "403" ]; then
+        echo -e "${GREEN}✓${NC}"
+    else
+        echo -e "${YELLOW}⚠ (HTTP $status)${NC}"
+    fi
+    
+    return 0
+}
+
+# Function to run smoke tests
+run_smoke_tests() {
+    local url=$1
+    
+    echo -e "\n${BLUE}Running smoke tests...${NC}"
+    
+    # Test 1: Page loads
+    echo -n "Test 1: Page loads successfully... "
+    if curl -s -f "$url" > /dev/null; then
+        echo -e "${GREEN}✓${NC}"
+    else
+        echo -e "${RED}✗${NC}"
+        return 1
+    fi
+    
+    # Test 2: No 500 errors
+    echo -n "Test 2: No server errors... "
+    status=$(curl -s -o /dev/null -w "%{http_code}" "$url" || echo "000")
+    if [ "$status" != "500" ] && [ "$status" != "502" ] && [ "$status" != "503" ]; then
+        echo -e "${GREEN}✓${NC}"
+    else
+        echo -e "${RED}✗ (HTTP $status)${NC}"
+        return 1
+    fi
+    
+    # Test 3: Response within acceptable time
+    echo -n "Test 3: Response time acceptable... "
+    response_time=$(curl -o /dev/null -s -w "%{time_total}" "$url" || echo "0")
+    if (( $(echo "$response_time < 10" | bc -l) )); then
+        echo -e "${GREEN}✓${NC}"
+    else
+        echo -e "${RED}✗ (${response_time}s)${NC}"
+        return 1
+    fi
+    
+    echo -e "${GREEN}All smoke tests passed!${NC}"
+    return 0
+}
+
+# Function to generate report
+generate_report() {
+    local url=$1
+    local success=$2
+    
+    if [ ! -d "logs/reports" ]; then
+        mkdir -p logs/reports
+    fi
+    
+    timestamp=$(date -u +"%Y-%m-%d_%H-%M-%S")
+    report_file="logs/reports/deployment-verification-${timestamp}.md"
+    
+    cat > "$report_file" << EOF
+# Deployment Verification Report
+
+**URL:** $url
+**Timestamp:** $(date -u +"%Y-%m-%d %H:%M:%S UTC")
+**Status:** $([ "$success" = "true" ] && echo "✅ Success" || echo "❌ Failed")
+
+## Verification Results
+
+- Deployment availability: $([ "$success" = "true" ] && echo "✓" || echo "✗")
+- Response time: Measured
+- Content type: Verified
+- Assets: Checked
+
+## Next Steps
+
+$([ "$success" = "true" ] && echo "Deployment is ready for production use." || echo "Please review the deployment and fix any issues.")
+
+---
+*Auto-generated by deployment verification script*
+EOF
+    
+    echo -e "${GREEN}Report saved to: $report_file${NC}"
+}
+
+# Main function
+main() {
+    echo "====================================="
+    echo "  Deployment Verification"
+    echo "====================================="
+    echo "URL: $DEPLOYMENT_URL"
+    echo "Time: $(date -u +"%Y-%m-%d %H:%M:%S UTC")"
+    echo ""
+    
+    # Wait for deployment
+    if ! wait_for_deployment "$DEPLOYMENT_URL"; then
+        echo -e "\n${RED}Deployment verification failed: Timeout${NC}"
+        generate_report "$DEPLOYMENT_URL" "false"
+        exit 1
+    fi
+    
+    # Verify deployment
+    if ! verify_deployment "$DEPLOYMENT_URL"; then
+        echo -e "\n${RED}Deployment verification failed: Checks failed${NC}"
+        generate_report "$DEPLOYMENT_URL" "false"
+        exit 1
+    fi
+    
+    # Run smoke tests
+    if ! run_smoke_tests "$DEPLOYMENT_URL"; then
+        echo -e "\n${RED}Deployment verification failed: Smoke tests failed${NC}"
+        generate_report "$DEPLOYMENT_URL" "false"
+        exit 1
+    fi
+    
+    # Generate success report
+    generate_report "$DEPLOYMENT_URL" "true"
+    
+    echo ""
+    echo "====================================="
+    echo -e "${GREEN}  Deployment verified successfully!${NC}"
+    echo "====================================="
+    exit 0
+}
+
+# Run main
+main

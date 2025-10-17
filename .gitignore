@@ -124,3 +124,13 @@ logs/screenshots/*
 
 # Build artifacts
 dist_server/
+
+# CI/CD logs (keep directory structure)
+logs/*
+!logs/.gitkeep
+!logs/metrics/
+!logs/reports/
+logs/metrics/*
+logs/reports/*
+!logs/metrics/.gitkeep
+!logs/reports/.gitkeep

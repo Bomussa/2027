@@ -16,15 +16,11 @@ export function LoginPage({ onLogin, onAdminLogin, currentTheme, onThemeChange, 
 
   const handleSubmit = async (e) => {
     e.preventDefault()
-    const id = patientId.trim()
-    if (!id || id.length < 2 || id.length > 16) {
-      alert(language === 'ar' ? 'الرقم يجب أن يكون بين 2 و 16 رقم' : 'ID must be between 2 and 16 digits')
-      return
-    }
+    if (!patientId.trim()) return
 
     setLoading(true)
     try {
-      await onLogin({ patientId: id, gender })
+      await onLogin({ patientId: patientId.trim(), gender })
     } catch (error) {
       console.error('Login error:', error)
     } finally {

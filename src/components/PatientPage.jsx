@@ -8,7 +8,6 @@ import { t } from '../lib/i18n'
 import api from '../lib/api'
 import enhancedApi from '../lib/enhanced-api'
 import { ZFDTicketDisplay, ZFDBanner } from './ZFDTicketDisplay'
-import NotificationPanel from './NotificationPanel'
 
 export function PatientPage({ patientData, onLogout, language, toggleLanguage }) {
   const [stations, setStations] = useState([])
@@ -341,9 +340,6 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
           </Button>
         </div>
       </div>
-      
-      {/* لوحة الإشعارات الفورية - تظهر فقط بعد دخول عيادة */}
-      {stations.some(s => s.isEntered) && <NotificationPanel patientId={patientData?.id} />}
     </div>
   )
 }

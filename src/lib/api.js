@@ -1,5 +1,3 @@
-import unifiedStorage from './unified-storage.js'
-
 // كشف ديناميكي لقاعدة الـ API مع بدائل متعددة لضمان العمل في وضع التطوير والإنتاج وحتى دون خادم
 function resolveApiBases() {
   const bases = []
@@ -52,154 +50,53 @@ class ApiService {
     }
 
     // في حال فشل جميع المحاولات، فعّل وضع عدم الاتصال لبعض المسارات الأساسية
-    const offline = await this.offlineFallback(endpoint, options)
+    const offline = this.offlineFallback(endpoint, options)
     if (offline.ok) return offline.data
 
     console.error('API Error (all bases failed):', lastError)
     throw lastError || new Error('تعذر الوصول إلى الخادم')
   }
 
-  // رجوع محلي محسّن يدعم جميع الوظائف
-  async offlineFallback(endpoint, options = {}) {
+  // رجوع محلي دون خادم لتجربة التدفق الأساسي عند غياب الـ API
+  offlineFallback(endpoint, options = {}) {
     try {
       const method = (options.method || 'GET').toUpperCase()
       const body = options.body ? JSON.parse(options.body) : null
 
+      // تخزين محلي بسيط للحالة
+      const lsKey = 'mms.patientData'
+      const readPatient = () => {
+        try { return JSON.parse(localStorage.getItem(lsKey) || 'null') } catch { return null }
+      }
+      const writePatient = (v) => {
+        try { localStorage.setItem(lsKey, JSON.stringify(v)) } catch (e) { void 0 }
+      }
+
       // POST /api/queue/enter
-      if (endpoint === '/api/queue/enter' && method === 'POST') {
-        const patientId = body?.patientId || body?.visitId
-        const clinicId = body?.clinicId
-        
-        console.log('[Offline] /api/queue/enter:', { patientId, clinicId, body })
-        
-        if (patientId && clinicId) {
-          // إضافة للطابور
-          const entry = await unifiedStorage.addToQueue(clinicId, patientId)
-          return { ok: true, data: { ticket: entry.number, clinicId, verified: true } }
-        } else if (patientId) {
-          // إنشاء مراجع جديد
-          const patient = unifiedStorage.addPatient(body)
-          console.log('[Offline] Patient created:', patient)
-          return { ok: true, data: patient }
-        }
+      if (endpoint === '/api/queue/enter' && method === 'POST' && body?.patientId) {
+        const id = Date.now().toString(36)
+        const data = { id, patientId: body.patientId, gender: body.gender || 'male', queueType: null, status: 'waiting' }
+        writePatient(data)
+        return { ok: true, data }
       }
 
       // POST /api/select-exam
       if (endpoint === '/api/select-exam' && method === 'POST' && body?.patientId && body?.examType) {
-        const patient = unifiedStorage.updatePatient(body.patientId, { queueType: body.examType })
-        
-        // تهيئة المسار الديناميكي للمراجع
-        await unifiedStorage.initPatientPath(body.patientId, body.examType)
-        
-        return { ok: true, data: patient }
+        const p = readPatient() || { id: body.patientId, patientId: body.patientId }
+        const data = { ...p, queueType: body.examType, status: 'in-queue' }
+        writePatient(data)
+        return { ok: true, data: { ok: true, ...data } }
       }
 
       // GET /api/patient/:id
       if (endpoint.startsWith('/api/patient/')) {
-        const id = endpoint.split('/').pop()
-        const patient = unifiedStorage.getPatient(id)
-        if (patient) return { ok: true, data: patient }
+        const p = readPatient()
+        if (p) return { ok: true, data: p }
       }
 
-      // GET /api/queues
-      if (endpoint === '/api/queues' && method === 'GET') {
-        const clinics = unifiedStorage.getClinics()
-        return { ok: true, data: clinics }
-      }
-
-      // GET /api/admin/stats
-      if (endpoint === '/api/admin/stats' && method === 'GET') {
-        const stats = unifiedStorage.getStats()
-        return { ok: true, data: stats }
-      }
-
-      // GET /api/admin/pins
-      if (endpoint.startsWith('/api/admin/pins') && method === 'GET') {
-        const pins = unifiedStorage.getActivePINs()
-        return { ok: true, data: { pins } }
-      }
-
-      // POST /api/pin/issue
-      if (endpoint === '/api/pin/issue' && method === 'POST' && body?.clinicId) {
-        const pin = unifiedStorage.generatePIN(body.clinicId)
-        return { ok: true, data: pin }
-      }
-
-      // POST /api/pin/validate
-      if (endpoint === '/api/pin/validate' && method === 'POST' && body?.clinicId && body?.pin) {
-        const result = unifiedStorage.openClinic(body.clinicId, body.pin)
-        return { ok: result.success, data: result }
-      }
-
-      // POST /api/admin/deactivate-pin
-      if (endpoint === '/api/admin/deactivate-pin' && method === 'POST' && body?.pinId) {
-        const success = unifiedStorage.deactivatePIN(body.pinId)
-        return { ok: success, data: { success } }
-      }
-
-      // GET /api/admin/clinics
-      if (endpoint === '/api/admin/clinics' && method === 'GET') {
-        const clinics = unifiedStorage.getClinics()
-        return { ok: true, data: clinics }
-      }
-
-      // POST /api/admin/next/:type
-      if (endpoint.match(/\/api\/admin\/next\//) && method === 'POST') {
-        const clinicId = endpoint.split('/').pop()
-        const result = unifiedStorage.callNextPatient(clinicId)
-        return { ok: result.success, data: result }
-      }
-
-      // POST /api/admin/pause/:type
-      if (endpoint.match(/\/api\/admin\/pause\//) && method === 'POST') {
-        const clinicId = endpoint.split('/').pop()
-        const result = unifiedStorage.pauseQueue(clinicId)
-        return { ok: result.success, data: result }
-      }
-
-      // POST /api/admin/reset
-      if (endpoint === '/api/admin/reset' && method === 'POST') {
-        const result = unifiedStorage.resetSystem()
-        return { ok: true, data: result }
-      }
-
-      // POST /api/queue/complete
-      if (endpoint === '/api/queue/complete' && method === 'POST' && body?.clinicId && body?.ticket) {
-        const result = unifiedStorage.completePatient(body.clinicId, body.ticket)
-        return { ok: result.success, data: result }
-      }
-
-      // POST /api/admin/report
-      if (endpoint === '/api/admin/report' && method === 'POST') {
-        const report = unifiedStorage.generateReport(body?.type || 'general', body?.format || 'json')
-        return { ok: true, data: report }
-      }
-
-      // GET /api/admin/reports
-      if (endpoint.startsWith('/api/admin/reports') && method === 'GET') {
-        const reports = unifiedStorage.getReports()
-        return { ok: true, data: reports }
-      }
-
-      // GET /api/notifications
-      if (endpoint.startsWith('/api/notifications') && method === 'GET') {
-        const patientId = new URLSearchParams(endpoint.split('?')[1] || '').get('patientId')
-        const notifications = unifiedStorage.getNotifications(patientId)
-        return { ok: true, data: notifications }
-      }
-
-      // POST /api/admin/login
-      if (endpoint === '/api/admin/login' && method === 'POST') {
-        // تسجيل دخول بسيط للاختبار
-        if (body?.adminCode === 'BOMUSSA14490' || (body?.username === 'Bomussa' && body?.password === '14490')) {
-          return { ok: true, data: { success: true, token: 'offline-token' } }
-        }
-        return { ok: false, data: { success: false, error: 'Invalid credentials' } }
-      }
-
+      // استدعاءات أخرى لا يوجد لها رجوع محلي
       return { ok: false }
     } catch (e) {
-      console.error('Offline fallback error:', e)
       return { ok: false }
     }
   }

@@ -6,9 +6,7 @@
   "main": "server.js",
   "scripts": {
     "dev": "vite",
-    "build": "npm run build:backend && npm run build:frontend",
-    "build:backend": "tsc",
-    "build:frontend": "vite build",
+    "build": "vite build",
     "preview": "vite preview",
     "start": "node server.js",
     "install-and-start": "npm install --legacy-peer-deps && npm run build && npm start"

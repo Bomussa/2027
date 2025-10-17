@@ -22,10 +22,8 @@ import {
   Globe
 } from 'lucide-react'
 import { themes } from '../lib/utils'
-import { enhancedMedicalThemes } from '../lib/enhanced-themes'
 import { t } from '../lib/i18n'
 import api from '../lib/api'
-import NotificationPanel from './NotificationPanel'
 
 export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, onThemeChange }) {
   const [currentView, setCurrentView] = useState('dashboard')
@@ -72,44 +70,10 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
 
   const loadActivePins = async () => {
     try {
-      // إنشاء 20 PIN تلقائياً دائماً (نظام تلقائي)
-      const autoPins = []
-      const clinics = ['المختبر', 'عيادة العيون', 'عيادة الباطنية', 'عيادة الجراحة العامة', 'عيادة العظام والمفاصل', 'عيادة أنف وأذن وحنجرة', 'عيادة النفسية', 'عيادة الأسنان', 'المختبر والأشعة']
-      
-      for (let i = 1; i <= 20; i++) {
-        const pinNumber = i.toString().padStart(2, '0')
-        const clinicId = clinics[(i - 1) % clinics.length]
-        autoPins.push({
-          id: `pin_${i}`,
-          pin: pinNumber,
-          clinicId: clinicId,
-          status: 'active',
-          issuedAt: new Date().toISOString(),
-          expiresAt: new Date(new Date().setHours(29, 0, 0, 0)).toISOString()
-        })
-      }
-      
-      setActivePins(autoPins)
+      const data = await api.getActivePins(adminCode)
+      setActivePins(data.pins || [])
     } catch (error) {
       console.error('Failed to load pins:', error)
-      // في حالة الخطأ، إنشاء PINs تلقائياً
-      const autoPins = []
-      const clinics = ['المختبر', 'عيادة العيون', 'عيادة الباطنية', 'عيادة الجراحة العامة', 'عيادة العظام والمفاصل', 'عيادة أنف وأذن وحنجرة', 'عيادة النفسية', 'عيادة الأسنان', 'المختبر والأشعة']
-      
-      for (let i = 1; i <= 20; i++) {
-        const pinNumber = i.toString().padStart(2, '0')
-        const clinicId = clinics[(i - 1) % clinics.length]
-        autoPins.push({
-          id: `pin_${i}`,
-          pin: pinNumber,
-          clinicId: clinicId,
-          status: 'active',
-          issuedAt: new Date().toISOString(),
-          expiresAt: new Date(new Date().setHours(29, 0, 0, 0)).toISOString()
-        })
-      }
-      
-      setActivePins(autoPins)
     }
   }
 
@@ -166,6 +130,10 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
       <div className="flex items-center gap-3 mb-8">
         <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-yellow-500 rounded-full flex items-center justify-center">
           <span className="text-white font-bold">⚕️</span>
+        </div>
+        <div>
+          <h2 className="text-white font-semibold">Admin Dashboard</h2>
+          <p className="text-gray-400 text-sm">Welcome admin</p>
         </div>
       </div>
 
@@ -539,6 +507,8 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
   )
 
   const renderSettings = () => {
+    const { enhancedMedicalThemes } = require('../lib/enhanced-themes')
+
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -693,9 +663,6 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
           {currentView === 'settings' && renderSettings()}
         </main>
       </div>
-      
-      {/* لوحة الإشعارات الفورية للإدارة */}
-      <NotificationPanel isAdmin={true} />
     </div>
   )
 }

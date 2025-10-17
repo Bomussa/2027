@@ -171,6 +171,7 @@ html, body {
 /* Prevent common container elements from causing horizontal scroll */
 div, section, article, main, aside, nav, header, footer {
   max-width: 100%;
+  box-sizing: border-box;
 }
 
 /* Mobile-specific adjustments */

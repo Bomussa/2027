@@ -8,8 +8,8 @@ on:
   deployment_status:
 
 env:
-  PRODUCTION_URL: 'https://www.mmc-mms.com'
-  PREVIEW_URL: 'https://2027-5a0.pages.dev'
+  PRODUCTION_URL: 'https://www.mmc-mms.com'  # Replace with your custom domain
+  PREVIEW_URL: 'https://2027-5a0.pages.dev'  # Replace with your Cloudflare Pages URL
 
 jobs:
   collect-metrics:

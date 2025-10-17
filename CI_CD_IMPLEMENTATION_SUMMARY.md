@@ -59,7 +59,7 @@ A complete automated CI/CD and error detection system has been implemented for t
 
 ### 2. Scripts (2 executable bash scripts)
 
-#### a. Health Check Script (`scripts/health-check.sh`)
+#### 1. Health Check Script (`scripts/health-check.sh`)
 - Standalone health verification tool
 - Configurable via environment variables
 - Supports multiple retries
@@ -68,7 +68,7 @@ A complete automated CI/CD and error detection system has been implemented for t
 - Color-coded output
 - Returns exit codes for CI integration
 
-#### b. Deployment Verification Script (`scripts/verify-deployment.sh`)
+#### 2. Deployment Verification Script (`scripts/verify-deployment.sh`)
 - Waits for deployment availability
 - Runs comprehensive verification checks
 - Executes smoke tests
@@ -181,9 +181,9 @@ logs/
 1. **CLOUDFLARE_API_TOKEN** - API token with Pages edit permission
 2. **CLOUDFLARE_ACCOUNT_ID** - Cloudflare account ID
 
-### URLs Monitored
-- Production: `https://www.mmc-mms.com`
-- Preview: `https://2027-5a0.pages.dev`
+### URLs Monitored (Examples - Configure for your project)
+- Production: `https://www.mmc-mms.com` (Replace with your custom domain)
+- Preview: `https://2027-5a0.pages.dev` (Replace with your Cloudflare Pages URL)
 
 ## Files Created/Modified
 

@@ -1,4 +1,4 @@
-name: Auto-Fix npm Lock Conflict
+name: Auto-Fix npm Lock Conflict + Plan B Recovery
 on:
   workflow_dispatch:
   push:
@@ -7,6 +7,7 @@ on:
 jobs:
   fix-lock:
     runs-on: ubuntu-latest
+
     steps:
       - name: 🧩 Checkout repository
         uses: actions/checkout@v4
@@ -30,11 +31,28 @@ jobs:
           git commit -m "fix: sync package-lock.json with picomatch@^4.0.3" || echo "No changes"
           git push origin main || echo "Push skipped"
 
-      - name: 🏗️ Rebuild project
+      - name: 🏗️ Primary Build (npm ci)
+        id: build_step
         run: |
-          npm ci
-          npm run build
+          echo "🧱 Starting build with npm ci..."
+          set +e
+          npm ci && npm run build
+          BUILD_STATUS=$?
+          echo "status=$BUILD_STATUS" >> $GITHUB_OUTPUT
+          exit 0
 
-      - name: ✅ Verify output
+      - name: 🪫 Plan B: Retry with npm install if npm ci failed
+        if: steps.build_step.outputs.status != '0'
         run: |
-          test -d dist && echo "✅ Build directory exists"
+          echo "⚠️ npm ci failed — attempting recovery with npm install..."
+          npm install
+          npm run build || (echo "❌ Plan B failed — manual intervention required." && exit 1)
+
+      - name: ✅ Verify build output
+        run: |
+          if [ -d dist ]; then
+            echo "✅ Build directory exists. Auto-fix completed successfully!"
+          else
+            echo "❌ Build directory missing — check build logs or dependencies."
+            exit 1
+          fi

@@ -270,10 +270,30 @@ export const medicalPathways = {
 }
 
 // Get medical pathway based on exam type and gender
+// Dynamic routing: Randomize clinic order for each patient
 export function getMedicalPathway(examType, gender) {
   const pathway = medicalPathways[examType]
   if (!pathway) return []
-  return pathway[gender] || pathway.male
+  const basePath = pathway[gender] || pathway.male
+  
+  // Create a copy and shuffle the order (except first clinic - always lab)
+  const result = [...basePath]
+  
+  // Keep first clinic (lab) fixed, shuffle the rest
+  if (result.length > 1) {
+    const firstClinic = result[0]
+    const restClinics = result.slice(1)
+    
+    // Fisher-Yates shuffle algorithm
+    for (let i = restClinics.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [restClinics[i], restClinics[j]] = [restClinics[j], restClinics[i]]
+    }
+    
+    return [firstClinic, ...restClinics]
+  }
+  
+  return result
 }
 
 export const themes = [

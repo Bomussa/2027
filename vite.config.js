@@ -18,6 +18,7 @@ export default defineConfig({
     assetsDir: 'assets',
     sourcemap: false,
     // Use 'esbuild' for minification to avoid an additional dependency ('terser') and achieve faster build times.
+    // Use 'esbuild' for minification to avoid an additional dependency ('terser') and achieve faster build times.
     minify: 'esbuild'
   }
 })

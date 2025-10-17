@@ -1,0 +1,174 @@
+name: CI - Build and Test
+
+on:
+  pull_request:
+    branches:
+      - main
+      - develop
+  push:
+    branches:
+      - main
+      - develop
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  lint-and-validate:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Validate workflow files
+        run: |
+          echo "Validating GitHub Actions workflows..."
+          
+          # Check if workflow files are valid YAML
+          for file in .github/workflows/*.yml; do
+            echo "Checking $file..."
+            # Basic YAML syntax check
+            if ! python3 -c "import yaml; yaml.safe_load(open('$file'))" 2>/dev/null; then
+              echo "Error: Invalid YAML in $file"
+              exit 1
+            fi
+          done
+          
+          echo "✅ All workflow files are valid"
+
+      - name: Check required files
+        run: |
+          echo "Checking for required CI/CD files..."
+          
+          REQUIRED_FILES=(
+            ".github/workflows/deploy.yml"
+            ".github/workflows/health-check.yml"
+            ".github/workflows/auto-repair.yml"
+            ".github/workflows/auto-merge.yml"
+            ".github/workflows/monitoring.yml"
+            ".github/CODEOWNERS"
+            "scripts/health-check.sh"
+            "scripts/verify-deployment.sh"
+            "CI_CD_DOCUMENTATION.md"
+          )
+          
+          for file in "${REQUIRED_FILES[@]}"; do
+            if [ ! -f "$file" ]; then
+              echo "❌ Missing required file: $file"
+              exit 1
+            else
+              echo "✅ Found: $file"
+            fi
+          done
+          
+          echo "✅ All required files present"
+
+  build-test:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build backend
+        run: npm run build:backend
+
+      - name: Build frontend
+        run: npm run build:frontend
+
+      - name: Verify build output
+        run: |
+          echo "Verifying build output..."
+          
+          # Check dist directory exists
+          if [ ! -d "dist" ]; then
+            echo "❌ dist directory not found"
+            exit 1
+          fi
+          
+          # Check index.html exists
+          if [ ! -f "dist/index.html" ]; then
+            echo "❌ index.html not found in dist"
+            exit 1
+          fi
+          
+          # Check for assets
+          if [ ! -d "dist/assets" ]; then
+            echo "⚠️ Warning: assets directory not found"
+          fi
+          
+          # Get build size
+          BUILD_SIZE=$(du -sh dist | cut -f1)
+          echo "📦 Build size: $BUILD_SIZE"
+          
+          echo "✅ Build verification successful"
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: build-artifacts
+          path: dist/
+          retention-days: 7
+
+  test-scripts:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Test health check script
+        run: |
+          echo "Testing health check script..."
+          
+          # Make scripts executable
+          chmod +x scripts/*.sh
+          
+          # Test script syntax
+          bash -n scripts/health-check.sh
+          bash -n scripts/verify-deployment.sh
+          
+          echo "✅ Scripts syntax is valid"
+
+      - name: Test health check with mock server
+        run: |
+          # Start a simple HTTP server for testing
+          mkdir -p test-server
+          echo "OK" > test-server/index.html
+          cd test-server && python3 -m http.server 8000 &
+          SERVER_PID=$!
+          
+          # Wait for server to start
+          sleep 2
+          
+          # Test health check against local server
+          export PRODUCTION_URL="http://localhost:8000"
+          export PREVIEW_URL="http://localhost:8000"
+          
+          # Run health check (should pass)
+          if ../scripts/health-check.sh; then
+            echo "✅ Health check test passed"
+          else
+            echo "❌ Health check test failed"
+            kill $SERVER_PID
+            exit 1
+          fi
+          
+          # Cleanup
+          kill $SERVER_PID

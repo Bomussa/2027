@@ -1,0 +1,165 @@
+name: Auto-Merge with Status Checks
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+  pull_request_review:
+    types: [submitted]
+
+jobs:
+  check-status:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+      checks: read
+    
+    steps:
+      - name: Check if PR is ready for auto-merge
+        id: check_ready
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: pr } = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number
+            });
+            
+            // Check if PR has auto-merge label
+            const hasAutoMergeLabel = pr.labels.some(label => 
+              label.name === 'auto-merge' || label.name === 'automerge'
+            );
+            
+            // Check if PR is from Copilot
+            const isCopilotPR = pr.head.ref.startsWith('copilot/');
+            
+            // Don't auto-merge if it has manual-review label
+            const needsManualReview = pr.labels.some(label => 
+              label.name === 'manual-review' || label.name === 'do-not-merge'
+            );
+            
+            if (needsManualReview) {
+              console.log('PR requires manual review - skipping auto-merge');
+              return { ready: false, reason: 'manual-review-required' };
+            }
+            
+            if (!hasAutoMergeLabel && !isCopilotPR) {
+              console.log('PR does not have auto-merge label - skipping');
+              return { ready: false, reason: 'no-auto-merge-label' };
+            }
+            
+            // Check if all required checks have passed
+            const { data: checks } = await github.rest.checks.listForRef({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              ref: pr.head.sha
+            });
+            
+            const allChecksPassed = checks.check_runs.every(check => 
+              check.status === 'completed' && check.conclusion === 'success'
+            );
+            
+            if (!allChecksPassed) {
+              console.log('Not all checks have passed yet');
+              return { ready: false, reason: 'checks-pending' };
+            }
+            
+            // Check for required approvals
+            const { data: reviews } = await github.rest.pulls.listReviews({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.payload.pull_request.number
+            });
+            
+            const approvedReviews = reviews.filter(review => 
+              review.state === 'APPROVED'
+            ).length;
+            
+            // For Copilot PRs, we may not need approval, but for others we do
+            const needsApproval = !isCopilotPR;
+            
+            if (needsApproval && approvedReviews === 0) {
+              console.log('PR requires approval before auto-merge');
+              return { ready: false, reason: 'approval-required' };
+            }
+            
+            // Check if PR is mergeable
+            if (pr.mergeable_state !== 'clean') {
+              console.log(`PR is not in clean state: ${pr.mergeable_state}`);
+              return { ready: false, reason: 'not-mergeable' };
+            }
+            
+            console.log('PR is ready for auto-merge!');
+            return { ready: true, reason: 'all-checks-passed' };
+
+      - name: Enable auto-merge
+        if: steps.check_ready.outputs.result == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            
+            try {
+              // Enable auto-merge with squash merge
+              await github.rest.pulls.merge({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: pr.number,
+                merge_method: 'squash',
+                commit_title: `${pr.title} (#${pr.number})`,
+                commit_message: pr.body
+              });
+              
+              console.log('✅ PR auto-merged successfully');
+              
+              // Add comment to PR
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: pr.number,
+                body: '✅ **Auto-merged** - All status checks passed and requirements met.'
+              });
+            } catch (error) {
+              console.log(`Auto-merge failed: ${error.message}`);
+              
+              // If direct merge fails, try enabling auto-merge
+              try {
+                await github.graphql(`
+                  mutation {
+                    enablePullRequestAutoMerge(input: {
+                      pullRequestId: "${pr.node_id}",
+                      mergeMethod: SQUASH
+                    }) {
+                      pullRequest {
+                        autoMergeRequest {
+                          enabledAt
+                        }
+                      }
+                    }
+                  }
+                `);
+                
+                console.log('✅ Auto-merge enabled - will merge when ready');
+              } catch (graphqlError) {
+                console.log(`Could not enable auto-merge: ${graphqlError.message}`);
+              }
+            }
+
+      - name: Add status comment
+        if: steps.check_ready.outputs.result == 'false'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const result = JSON.parse('${{ steps.check_ready.outputs.result }}');
+            const reasons = {
+              'manual-review-required': '🔍 This PR requires manual review.',
+              'no-auto-merge-label': 'ℹ️ Auto-merge not enabled for this PR.',
+              'checks-pending': '⏳ Waiting for all status checks to pass.',
+              'approval-required': '👥 Waiting for required approvals.',
+              'not-mergeable': '⚠️ PR has merge conflicts or is not in a mergeable state.'
+            };
+            
+            const message = reasons[result.reason] || '❓ Auto-merge requirements not met.';
+            
+            console.log(`Status: ${message}`);

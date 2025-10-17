@@ -1,0 +1,174 @@
+name: Auto-Repair Deployment
+
+on:
+  workflow_dispatch:
+  repository_dispatch:
+    types: [repair-deployment]
+
+env:
+  NODE_VERSION: '18'
+
+jobs:
+  auto-repair:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      deployments: write
+      issues: write
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+
+      - name: Clean install dependencies
+        run: |
+          rm -rf node_modules package-lock.json
+          npm install
+
+      - name: Verify package integrity
+        run: npm audit --audit-level=high
+
+      - name: Build application
+        id: build
+        run: |
+          echo "Starting build process..."
+          npm run build
+          
+          if [ $? -eq 0 ]; then
+            echo "build_status=success" >> $GITHUB_OUTPUT
+            echo "✅ Build completed successfully"
+          else
+            echo "build_status=failed" >> $GITHUB_OUTPUT
+            echo "❌ Build failed"
+            exit 1
+          fi
+
+      - name: Verify build artifacts
+        run: |
+          if [ ! -d "dist" ]; then
+            echo "❌ Error: dist directory not found"
+            exit 1
+          fi
+          
+          if [ ! -f "dist/index.html" ]; then
+            echo "❌ Error: index.html not found"
+            exit 1
+          fi
+          
+          echo "✅ Build artifacts verified"
+
+      - name: Deploy to Cloudflare Pages
+        id: deploy
+        uses: cloudflare/pages-action@v1
+        with:
+          apiToken: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          accountId: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          projectName: 2027
+          directory: dist
+          gitHubToken: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Wait for deployment
+        run: |
+          echo "Waiting 30 seconds for deployment to propagate..."
+          sleep 30
+
+      - name: Verify deployment health
+        id: verify
+        run: |
+          MAX_RETRIES=5
+          RETRY_DELAY=10
+          URL="https://2027-5a0.pages.dev"
+          
+          for i in $(seq 1 $MAX_RETRIES); do
+            echo "Attempt $i of $MAX_RETRIES..."
+            STATUS=$(curl -s -o /dev/null -w "%{http_code}" "$URL" || echo "000")
+            
+            if [ "$STATUS" = "200" ]; then
+              echo "deployment_status=success" >> $GITHUB_OUTPUT
+              echo "✅ Deployment verified successfully (HTTP $STATUS)"
+              exit 0
+            fi
+            
+            echo "Status: $STATUS - Retrying in $RETRY_DELAY seconds..."
+            sleep $RETRY_DELAY
+          done
+          
+          echo "deployment_status=failed" >> $GITHUB_OUTPUT
+          echo "❌ Deployment verification failed after $MAX_RETRIES attempts"
+          exit 1
+
+      - name: Update issue on success
+        if: steps.verify.outputs.deployment_status == 'success'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const issues = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'deployment-failure'
+            });
+            
+            for (const issue of issues.data) {
+              if (issue.title.includes('Deployment Health Check Failed')) {
+                await github.rest.issues.createComment({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  body: `✅ **Auto-repair completed successfully**\n\nThe deployment has been automatically repaired and verified.\n\n**Time:** ${new Date().toUTCString()}\n**Workflow:** ${context.workflow}\n**Run:** ${context.runId}`
+                });
+                
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issue.number,
+                  state: 'closed',
+                  labels: ['deployment-failure', 'auto-generated', 'auto-resolved']
+                });
+              }
+            }
+
+      - name: Create failure issue
+        if: failure()
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.create({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              title: `🚨 Auto-Repair Failed - ${new Date().toISOString()}`,
+              body: `### Auto-Repair Workflow Failed
+              
+              The automated repair workflow was unable to fix the deployment issue.
+              
+              **Time:** ${new Date().toUTCString()}
+              **Workflow Run:** ${context.serverUrl}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}
+              
+              ### Manual Intervention Required
+              
+              Please review:
+              1. Build logs for errors
+              2. Cloudflare Pages dashboard
+              3. Recent code changes
+              4. Application dependencies
+              
+              **Auto-generated by Auto-Repair workflow**`,
+              labels: ['deployment-failure', 'manual-intervention-required', 'auto-generated']
+            });
+
+      - name: Log repair results
+        if: always()
+        run: |
+          mkdir -p logs
+          echo "Auto-Repair - $(date -u +"%Y-%m-%d %H:%M:%S UTC")" >> logs/auto-repair.log
+          echo "Build Status: ${{ steps.build.outputs.build_status }}" >> logs/auto-repair.log
+          echo "Deployment Status: ${{ steps.verify.outputs.deployment_status }}" >> logs/auto-repair.log
+          echo "---" >> logs/auto-repair.log

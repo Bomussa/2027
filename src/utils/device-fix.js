@@ -12,7 +12,7 @@ function detectDevice() {
   const userAgent = navigator.userAgent || navigator.vendor || window.opera;
   
   // Check for iOS devices
-  if (/iPad|iPhone|iPod/.test(userAgent) && !window.MSStream) {
+  if (/iPad|iPhone|iPod/.test(userAgent)) {
     return 'ios';
   }
   
@@ -74,14 +74,7 @@ function handleBarcodeLink() {
       // Attempt to open in external browser
       // For iOS/Android, this will typically open in Safari/Chrome
       if (window.confirm('هل تريد فتح هذا الرابط في المتصفح الافتراضي؟\nDo you want to open this link in the default browser?')) {
-        // Try to trigger external browser opening
-        const link = document.createElement('a');
-        link.href = currentUrl;
-        link.target = '_blank';
-        link.rel = 'noopener noreferrer';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
+        window.open(currentUrl, '_blank', 'noopener,noreferrer');
       }
     }
   }

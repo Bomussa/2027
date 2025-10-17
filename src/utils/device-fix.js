@@ -74,7 +74,12 @@ function handleBarcodeLink() {
       // Attempt to open in external browser
       // For iOS/Android, this will typically open in Safari/Chrome
       if (window.confirm('هل تريد فتح هذا الرابط في المتصفح الافتراضي؟\nDo you want to open this link in the default browser?')) {
-        window.open(currentUrl, '_blank', 'noopener,noreferrer');
+        // Use location.href instead of window.open to avoid popup blockers
+        // This will navigate to the same URL but in a way that encourages external browser opening
+        const link = document.createElement('a');
+        link.href = currentUrl;
+        link.target = '_system'; // '_system' is commonly used for external browser on mobile
+        link.click();
       }
     }
   }

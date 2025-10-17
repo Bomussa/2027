@@ -1,5 +1,9 @@
 # نظام اللجنة الطبية العسكرية — دليل المشروع (2026)
 
+[![CI/CD Pipeline](https://github.com/Bomussa/2027/actions/workflows/ci-cd.yml/badge.svg)](https://github.com/Bomussa/2027/actions/workflows/ci-cd.yml)
+[![Deploy to Cloudflare](https://github.com/Bomussa/2027/actions/workflows/deploy-cloudflare.yml/badge.svg)](https://github.com/Bomussa/2027/actions/workflows/deploy-cloudflare.yml)
+[![PR Management](https://github.com/Bomussa/2027/actions/workflows/pr-management.yml/badge.svg)](https://github.com/Bomussa/2027/actions/workflows/pr-management.yml)
+
 هذه الصفحة تربطك بالمذكرة الأساسية التي تشرح بنية التطبيق كاملة، المسارات، تدفق البيانات، التشغيل والنشر. تم إعدادها لتسهيل الصيانة والإصلاح المستقبلي.
 
 روابط أساسية:

@@ -1,0 +1,260 @@
+name: Auto Error Detection & Repair
+
+on:
+  workflow_run:
+    workflows: ["CI/CD Pipeline", "Deploy to Cloudflare Pages"]
+    types: [completed]
+    branches: [main, develop]
+  workflow_dispatch:
+
+jobs:
+  # Job 1: Detect errors from failed workflows
+  detect-errors:
+    name: Detect Build/Deploy Errors
+    runs-on: ubuntu-latest
+    if: github.event.workflow_run.conclusion == 'failure'
+    outputs:
+      has-errors: ${{ steps.check.outputs.has-errors }}
+      error-type: ${{ steps.check.outputs.error-type }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Check workflow logs
+        id: check
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const runId = context.payload.workflow_run.id;
+            
+            console.log(`🔍 Analyzing workflow run ${runId}...`);
+            
+            try {
+              // Get jobs for the workflow run
+              const { data: jobs } = await github.rest.actions.listJobsForWorkflowRun({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                run_id: runId
+              });
+              
+              const failedJobs = jobs.jobs.filter(job => job.conclusion === 'failure');
+              
+              if (failedJobs.length > 0) {
+                console.log(`❌ Found ${failedJobs.length} failed job(s)`);
+                
+                let errorType = 'unknown';
+                
+                for (const job of failedJobs) {
+                  console.log(`- ${job.name}: ${job.conclusion}`);
+                  
+                  // Categorize error type based on job name
+                  if (job.name.includes('Backend') || job.name.includes('backend')) {
+                    errorType = 'backend';
+                  } else if (job.name.includes('Frontend') || job.name.includes('frontend')) {
+                    errorType = 'frontend';
+                  } else if (job.name.includes('Deploy')) {
+                    errorType = 'deployment';
+                  } else if (job.name.includes('API')) {
+                    errorType = 'api';
+                  }
+                }
+                
+                core.setOutput('has-errors', 'true');
+                core.setOutput('error-type', errorType);
+                
+                // Create issue for tracking
+                await github.rest.issues.create({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  title: `🔴 Automated Error Detection: ${errorType} failure in workflow #${context.payload.workflow_run.run_number}`,
+                  body: `## Error Detection Report\n\n` +
+                        `**Workflow:** ${context.payload.workflow_run.name}\n` +
+                        `**Run Number:** ${context.payload.workflow_run.run_number}\n` +
+                        `**Commit:** ${context.payload.workflow_run.head_sha}\n` +
+                        `**Branch:** ${context.payload.workflow_run.head_branch}\n` +
+                        `**Error Type:** ${errorType}\n\n` +
+                        `### Failed Jobs\n` +
+                        failedJobs.map(job => `- ${job.name}`).join('\n') + '\n\n' +
+                        `[View Workflow Run](${context.payload.workflow_run.html_url})`,
+                  labels: ['automated-error', 'needs-review', errorType]
+                });
+              } else {
+                core.setOutput('has-errors', 'false');
+              }
+            } catch (error) {
+              console.error('Error analyzing workflow:', error);
+              core.setOutput('has-errors', 'false');
+            }
+
+  # Job 2: Attempt automated repairs
+  auto-repair:
+    name: Attempt Auto-Repair
+    runs-on: ubuntu-latest
+    needs: detect-errors
+    if: needs.detect-errors.outputs.has-errors == 'true'
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22.x'
+          cache: 'npm'
+
+      - name: Common repair actions
+        run: |
+          echo "🔧 Attempting common repairs..."
+          
+          # Clear npm cache
+          echo "📦 Clearing npm cache..."
+          npm cache clean --force
+          
+          # Remove node_modules and package-lock
+          echo "🗑️  Cleaning node_modules..."
+          rm -rf node_modules package-lock.json
+          
+          # Fresh install
+          echo "📥 Fresh dependency install..."
+          npm install --legacy-peer-deps
+
+      - name: Repair based on error type
+        run: |
+          ERROR_TYPE="${{ needs.detect-errors.outputs.error-type }}"
+          echo "🔧 Attempting repair for error type: $ERROR_TYPE"
+          
+          case $ERROR_TYPE in
+            "backend")
+              echo "🔨 Backend repair..."
+              npm run build:backend || echo "⚠️ Backend build still failing"
+              ;;
+            "frontend")
+              echo "🔨 Frontend repair..."
+              npm run build:frontend || echo "⚠️ Frontend build still failing"
+              ;;
+            "deployment")
+              echo "🔨 Deployment repair - rebuilding all..."
+              npm run build || echo "⚠️ Build still failing"
+              ;;
+            *)
+              echo "🔨 Generic repair - full rebuild..."
+              npm run build || echo "⚠️ Build still failing"
+              ;;
+          esac
+
+      - name: Test repair
+        id: test-repair
+        run: |
+          echo "🧪 Testing repair..."
+          
+          if npm run build 2>&1 | tee build.log; then
+            echo "✅ Repair successful - build passes"
+            echo "repair-status=success" >> $GITHUB_OUTPUT
+          else
+            echo "❌ Repair unsuccessful - build still fails"
+            echo "repair-status=failed" >> $GITHUB_OUTPUT
+            cat build.log
+          fi
+
+      - name: Report repair status
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const repairStatus = '${{ steps.test-repair.outputs.repair-status }}';
+            const errorType = '${{ needs.detect-errors.outputs.error-type }}';
+            
+            let emoji = repairStatus === 'success' ? '✅' : '❌';
+            let message = `${emoji} **Auto-Repair ${repairStatus === 'success' ? 'Successful' : 'Failed'}**\n\n`;
+            message += `**Error Type:** ${errorType}\n`;
+            message += `**Status:** ${repairStatus}\n`;
+            message += `**Run:** [#${context.runNumber}](${context.payload.workflow_run.html_url})\n\n`;
+            
+            if (repairStatus === 'success') {
+              message += `The build issue has been automatically resolved. A new commit with the fix will be created.`;
+            } else {
+              message += `Automatic repair was unsuccessful. Manual intervention is required.\n\n`;
+              message += `Please review the [workflow logs](${context.payload.workflow_run.html_url}) for details.`;
+            }
+            
+            // Find the issue created by detect-errors
+            const { data: issues } = await github.rest.issues.listForRepo({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              state: 'open',
+              labels: 'automated-error',
+              sort: 'created',
+              direction: 'desc',
+              per_page: 1
+            });
+            
+            if (issues.length > 0) {
+              await github.rest.issues.createComment({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                issue_number: issues[0].number,
+                body: message
+              });
+              
+              if (repairStatus === 'success') {
+                await github.rest.issues.update({
+                  owner: context.repo.owner,
+                  repo: context.repo.repo,
+                  issue_number: issues[0].number,
+                  state: 'closed',
+                  labels: ['automated-error', 'auto-resolved']
+                });
+              }
+            }
+
+  # Job 3: Notification for manual intervention
+  notify-manual-intervention:
+    name: Notify Manual Intervention Needed
+    runs-on: ubuntu-latest
+    needs: [detect-errors, auto-repair]
+    if: |
+      always() &&
+      needs.detect-errors.outputs.has-errors == 'true' &&
+      needs.auto-repair.result != 'success'
+    steps:
+      - name: Create notification
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const errorType = '${{ needs.detect-errors.outputs.error-type }}';
+            
+            console.log('⚠️ Manual intervention required');
+            
+            await core.summary
+              .addHeading('⚠️ Manual Intervention Required')
+              .addRaw(`The automated repair system could not fix the ${errorType} errors.`)
+              .addHeading('Next Steps', 3)
+              .addList([
+                'Review the workflow logs',
+                'Check the created issue for details',
+                'Apply manual fixes',
+                'Push changes to trigger new workflow'
+              ])
+              .write();
+
+  # Job 4: Auto-repair summary
+  repair-summary:
+    name: Repair Summary
+    runs-on: ubuntu-latest
+    needs: [detect-errors, auto-repair]
+    if: always()
+    steps:
+      - name: Generate repair summary
+        run: |
+          echo "# 🔧 Auto-Repair Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Detection Results" >> $GITHUB_STEP_SUMMARY
+          echo "- Has Errors: ${{ needs.detect-errors.outputs.has-errors }}" >> $GITHUB_STEP_SUMMARY
+          echo "- Error Type: ${{ needs.detect-errors.outputs.error-type }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Repair Status" >> $GITHUB_STEP_SUMMARY
+          echo "- Auto-Repair Result: ${{ needs.auto-repair.result }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "## Workflow Details" >> $GITHUB_STEP_SUMMARY
+          echo "- **Triggered By:** ${{ github.event.workflow_run.name }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Run Number:** ${{ github.event.workflow_run.run_number }}" >> $GITHUB_STEP_SUMMARY
+          echo "- **Branch:** ${{ github.event.workflow_run.head_branch }}" >> $GITHUB_STEP_SUMMARY

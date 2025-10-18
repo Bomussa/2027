@@ -7,10 +7,10 @@ import { t } from '../lib/i18n'
 
 export function ExamSelectionPage({ onExamSelect, onBack, language, toggleLanguage }) {
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 overflow-hidden" data-test="exam-selection-page">
-      <div className="w-full max-w-4xl space-y-8 h-full flex flex-col justify-center">
+    <div className="min-h-screen flex items-center justify-center p-4 overflow-hidden" data-test="exam-selection-page" style={{ width: '100vw', overflowX: 'hidden' }}>
+      <div className="w-full max-w-4xl space-y-8 h-full flex flex-col justify-center" style={{ maxWidth: '100%' }}>
         {/* Language Selector */}
-        <div className="absolute top-4 right-4">
+        <div className="absolute top-4 right-4" style={{ zIndex: 50 }}>
           <Button
             variant="ghost"
             size="sm"
@@ -23,7 +23,7 @@ export function ExamSelectionPage({ onExamSelect, onBack, language, toggleLangua
         </div>
 
         {/* Back Button */}
-        <div className="absolute top-4 left-4">
+        <div className="absolute top-4 left-4" style={{ zIndex: 50 }}>
           <Button
             variant="ghost"
             size="sm"
@@ -37,7 +37,7 @@ export function ExamSelectionPage({ onExamSelect, onBack, language, toggleLangua
 
         {/* Logo and Title */}
         <div className="text-center space-y-4">
-          <img src="/logo.jpeg" alt="قيادة الخدمات الطبية" className="mx-auto w-32 h-32 rounded-full shadow-lg" />
+          <img src="/logo.jpeg" alt="قيادة الخدمات الطبية" className="mx-auto w-32 h-32 rounded-full shadow-lg" style={{ maxWidth: '100%', height: 'auto' }} />
 
           <div>
             <h1 className="text-3xl font-bold text-white">
@@ -61,7 +61,7 @@ export function ExamSelectionPage({ onExamSelect, onBack, language, toggleLangua
               <h2 className="text-2xl font-semibold text-white mb-2">{t('selectExamType', language)}</h2>
             </div>
 
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4" style={{ width: '100%' }}>
               {examTypes.map((exam) => (
                 <Button
                   key={exam.id}

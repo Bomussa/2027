@@ -1,0 +1,396 @@
+/* ============================================
+   Responsive Design Improvements
+   لضمان التوافق مع جميع الأجهزة والشاشات
+   بدون تغيير الهوية البصرية
+   ============================================ */
+
+/* ============================================
+   1. Base Responsive Layout
+   ============================================ */
+
+/* للهواتف الصغيرة جداً (< 320px) */
+@media (max-width: 319px) {
+  .min-h-screen {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    min-height: 100vh;
+  }
+  
+  .p-4 {
+    padding: 0.75rem;
+  }
+}
+
+/* للهواتف الصغيرة (320px - 480px) */
+@media (max-width: 480px) {
+  /* تحسين المسافات الداخلية */
+  .p-4 {
+    padding: 0.75rem;
+  }
+  
+  .p-8 {
+    padding: 1.5rem;
+  }
+  
+  .gap-4 {
+    gap: 0.75rem;
+  }
+  
+  .gap-8 {
+    gap: 1.5rem;
+  }
+  
+  /* تحسين الشبكات */
+  .grid-cols-2 {
+    grid-template-columns: 1fr;
+  }
+  
+  .grid-cols-4 {
+    grid-template-columns: 1fr 1fr;
+  }
+  
+  /* ضمان الصور متجاوبة */
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+  
+  /* تحسين الأزرار والمدخلات للمس */
+  button, input {
+    min-height: 44px;
+  }
+}
+
+/* للهواتف المتوسطة (481px - 768px) */
+@media (min-width: 481px) and (max-width: 768px) {
+  .grid-cols-4 {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+  
+  .max-w-4xl {
+    max-width: 100%;
+    padding: 0 1rem;
+  }
+  
+  .w-64 {
+    width: 100%;
+    max-width: 250px;
+  }
+}
+
+/* للأجهزة اللوحية (769px - 1024px) */
+@media (min-width: 769px) and (max-width: 1024px) {
+  .grid-cols-4 {
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+  }
+  
+  .max-w-4xl {
+    max-width: 100%;
+  }
+}
+
+/* ============================================
+   2. Screen-Specific Improvements
+   ============================================ */
+
+/* الشاشة الأولى - التسجيل (LoginPage) */
+@media (max-width: 480px) {
+  .absolute.top-4.right-4 {
+    top: 0.5rem;
+    right: 0.5rem;
+  }
+  
+  .absolute.top-16.right-4 {
+    top: 3.5rem;
+    right: 0.5rem;
+  }
+  
+  .space-y-8 {
+    gap: 1.5rem;
+  }
+  
+  .space-y-4 {
+    gap: 0.75rem;
+  }
+}
+
+/* الشاشة الثانية - اختيار الفحص (ExamSelectionPage) */
+@media (max-width: 480px) {
+  .grid.grid-cols-2.md\\:grid-cols-4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 481px) and (max-width: 768px) {
+  .grid.grid-cols-2.md\\:grid-cols-4 {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+/* الشاشة الثالثة - مسار العيادات (PatientPage) - تمرير عمودي فقط */
+@media (max-width: 768px) {
+  .clinic-route-container,
+  .stations-container,
+  .queue-list {
+    overflow-x: hidden;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+  
+  /* منع التمرير الأفقي */
+  .overflow-x-auto {
+    overflow-x: hidden;
+  }
+}
+
+/* الشاشة الرابعة - دخول الإدارة (AdminPage) */
+@media (max-width: 768px) {
+  /* إخفاء الشريط الجانبي على الهواتف */
+  .w-64 {
+    display: none;
+  }
+  
+  /* تحسين تخطيط الإدارة */
+  .flex.flex-row {
+    flex-direction: column;
+  }
+  
+  /* تحسين شبكة الإحصائيات */
+  .grid.grid-cols-2.lg\\:grid-cols-4 {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (min-width: 769px) {
+  .w-64 {
+    display: block;
+  }
+}
+
+/* ============================================
+   3. Text and Icon Alignment
+   ============================================ */
+
+/* تحسين محاذاة النصوص داخل الأيقونات */
+.flex.flex-col.gap-3 {
+  flex-direction: column;
+  gap: 0.75rem;
+  align-items: center;
+  justify-content: center;
+}
+
+/* تحسين النصوص */
+.text-center {
+  text-align: center;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+
+@media (max-width: 480px) {
+  .text-center {
+    font-size: 0.875rem;
+  }
+}
+
+/* ============================================
+   4. Touch-Friendly Improvements
+   ============================================ */
+
+/* تحسين حجم الأزرار للمس */
+button, a.button, input[type="button"], input[type="submit"] {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* تحسين المسافات بين العناصر القابلة للنقر */
+.clickable-element {
+  padding: 0.75rem;
+  margin: 0.25rem;
+}
+
+/* ============================================
+   5. Scrolling Behavior
+   ============================================ */
+
+/* ضمان التمرير العمودي فقط */
+body {
+  overflow-x: hidden;
+}
+
+html {
+  overflow-x: hidden;
+}
+
+/* تحسين الأداء على iOS */
+.scrollable-container {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* ============================================
+   6. Orientation-Specific Improvements
+   ============================================ */
+
+/* للوضع الأفقي */
+@media (orientation: landscape) and (max-height: 500px) {
+  .min-h-screen {
+    min-height: auto;
+  }
+}
+
+/* ============================================
+   7. Accessibility Improvements
+   ============================================ */
+
+/* تحسين الحركة للأشخاص الحساسين للحركة */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* ============================================
+   8. High DPI Screens (Retina)
+   ============================================ */
+
+@media (-webkit-min-device-pixel-ratio: 2), (min-resolution: 192dpi) {
+  body {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* ============================================
+   9. Flexbox and Grid Responsive
+   ============================================ */
+
+@media (max-width: 480px) {
+  .grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .flex.flex-row {
+    flex-direction: column;
+  }
+  
+  .flex.justify-between {
+    flex-direction: column;
+    gap: 1rem;
+  }
+}
+
+/* ============================================
+   10. Fixed Position Elements
+   ============================================ */
+
+@media (max-width: 480px) {
+  .fixed {
+    position: fixed;
+    z-index: 40;
+  }
+  
+  .top-4 {
+    top: 0.5rem;
+  }
+  
+  .right-4 {
+    right: 0.5rem;
+  }
+  
+  .left-4 {
+    left: 0.5rem;
+  }
+}
+
+/* ============================================
+   11. Smooth Scrolling
+   ============================================ */
+
+html {
+  scroll-behavior: smooth;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    scroll-behavior: smooth;
+  }
+}
+
+/* ============================================
+   12. Table Responsive
+   ============================================ */
+
+@media (max-width: 768px) {
+  table {
+    display: block;
+    overflow-x: auto;
+    white-space: nowrap;
+  }
+  
+  thead {
+    display: none;
+  }
+  
+  tbody, tr, td {
+    display: block;
+  }
+  
+  tr {
+    margin-bottom: 1rem;
+  }
+}
+
+/* ============================================
+   13. Form Responsive
+   ============================================ */
+
+@media (max-width: 480px) {
+  form {
+    width: 100%;
+  }
+  
+  .form-group {
+    margin-bottom: 1rem;
+  }
+  
+  label {
+    display: block;
+    margin-bottom: 0.5rem;
+  }
+  
+  input, textarea, select {
+    width: 100%;
+    max-width: 100%;
+  }
+}
+
+/* ============================================
+   14. Viewport Meta Tag Fallback
+   ============================================ */
+
+/* تحسين الحجم الأساسي للخط على الهواتف */
+@media (max-width: 480px) {
+  body {
+    font-size: 16px;
+  }
+}
+
+/* ============================================
+   15. Container Queries Support
+   ============================================ */
+
+@supports (container-type: inline-size) {
+  .responsive-container {
+    container-type: inline-size;
+  }
+  
+  @container (max-width: 480px) {
+    .responsive-element {
+      display: flex;
+      flex-direction: column;
+    }
+  }
+}
+

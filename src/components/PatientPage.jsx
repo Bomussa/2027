@@ -160,7 +160,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
   }
 
   return (
-    <div className="min-h-screen p-4" data-test="patient-page">
+    <div className="min-h-screen p-4" data-test="patient-page" style={{ width: '100vw', overflowX: 'hidden' }}>
       {/* Real-time notification banner */}
       {currentNotice && (
         <ZFDBanner
@@ -169,9 +169,9 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
         />
       )}
 
-      <div className="max-w-4xl mx-auto space-y-6 overflow-y-auto overflow-x-hidden">
+      <div className="max-w-4xl mx-auto space-y-6 overflow-y-auto overflow-x-hidden" style={{ maxWidth: '100%', overflowX: 'hidden', WebkitOverflowScrolling: 'touch' }}>
         {/* Language Selector */}
-        <div className="absolute top-4 right-4">
+        <div className="absolute top-4 right-4" style={{ zIndex: 50 }}>
           <Button
             variant="ghost"
             size="sm"

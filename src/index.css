@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Import responsive improvements */
+@import './responsive.css';
+
 @layer base {
   :root {
     --background: 220 20% 10%; /* Dark Blue */
@@ -35,6 +38,7 @@
     @apply bg-background text-foreground;
     background: linear-gradient(135deg, #8A1538 0%, #6B0F2A 50%, #C9A54C 100%);
     min-height: 100vh;
+    overflow-x: hidden;
   }
 }
 

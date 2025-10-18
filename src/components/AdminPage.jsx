@@ -126,7 +126,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
   }
 
   const renderSidebar = () => (
-    <div className="w-64 bg-gray-800/50 border-r border-gray-700 p-4">
+    <div className="w-64 bg-gray-800/50 border-r border-gray-700 p-4" style={{ minHeight: '100vh' }}>
       <div className="flex items-center gap-3 mb-8">
         <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-yellow-500 rounded-full flex items-center justify-center">
           <span className="text-white font-bold">⚕️</span>
@@ -209,7 +209,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
       </div>
 
       {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6" style={{ width: '100%' }}>
         <Card className="bg-gray-800/50 border-gray-700">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
@@ -313,7 +313,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <h3 className="text-white font-semibold text-lg mb-2">{queue.name || queue.nameAr}</h3>
-                    <div className="grid grid-cols-3 gap-4">
+                    <div className="grid grid-cols-3 gap-2 md:gap-4" style={{ width: '100%' }}>
                       <div>
                         <p className="text-2xl font-bold text-white">{queue.current || 0}</p>
                         <p className="text-gray-400 text-sm">الرقم الحالي</p>

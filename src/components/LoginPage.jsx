@@ -47,10 +47,10 @@ export function LoginPage({ onLogin, onAdminLogin, currentTheme, onThemeChange, 
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
-      <div className="w-full max-w-md space-y-8 h-full flex flex-col justify-center">
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden" style={{ width: '100vw', overflowX: 'hidden' }}>
+      <div className="w-full max-w-md space-y-8 h-full flex flex-col justify-center" style={{ maxWidth: '100%' }}>
         {/* Language Selector */}
-        <div className="absolute top-4 right-4">
+        <div className="absolute top-4 right-4" style={{ zIndex: 50 }}>
           <Button
             variant="ghost"
             size="sm"
@@ -64,7 +64,7 @@ export function LoginPage({ onLogin, onAdminLogin, currentTheme, onThemeChange, 
 
         {/* Admin quick access */}
         {onAdminLogin && (
-          <div className="absolute top-16 right-4 z-50">
+          <div className="absolute top-16 right-4" style={{ zIndex: 50 }}>
             <Button
               variant="ghost"
               size="sm"
@@ -83,16 +83,16 @@ export function LoginPage({ onLogin, onAdminLogin, currentTheme, onThemeChange, 
 
         {/* Logo and Title */}
         <div className="text-center space-y-4">
-          <img src="/logo.jpeg" alt="قيادة الخدمات الطبية" className="mx-auto w-32 h-32 rounded-full shadow-lg" />
+          <img src="/logo.jpeg" alt="قيادة الخدمات الطبية" className="mx-auto w-32 h-32 rounded-full shadow-lg" style={{ maxWidth: '100%', height: 'auto' }} />
 
           <div>
-            <h1 className="text-3xl font-bold text-white">
+            <h1 className="text-3xl font-bold text-white" style={{ wordWrap: 'break-word', overflowWrap: 'break-word' }}>
               {language === 'ar' ? 'قيادة الخدمات الطبية' : 'Medical Services Command'}
             </h1>
-            <p className="text-xl text-gray-300 mt-2">
+            <p className="text-xl text-gray-300 mt-2" style={{ wordWrap: 'break-word', overflowWrap: 'break-word' }}>
               {language === 'ar' ? 'Medical Services' : 'قيادة الخدمات الطبية'}
             </p>
-            <p className="text-gray-400 mt-2">
+            <p className="text-gray-400 mt-2" style={{ wordWrap: 'break-word', overflowWrap: 'break-word' }}>
               {language === 'ar'
                 ? 'المركز الطبي المتخصص العسكري - العطار - اللجنة الطبية'
                 : 'Military Specialized Medical Center – Al-Attar – Medical Committee'}

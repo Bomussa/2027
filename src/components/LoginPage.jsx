@@ -49,8 +49,8 @@ export function LoginPage({ onLogin, onAdminLogin, currentTheme, onThemeChange, 
   return (
     <div className="min-h-screen flex items-center justify-center p-4 relative">
       <div className="w-full max-w-md space-y-8">
-        {/* Language Selector */}
-        <div className="absolute top-4 left-4">
+        {/* Language Selector (Left) and Admin Access (Right) */}
+        <div className="absolute top-4 left-4 z-50">
           <Button
             variant="ghost"
             size="sm"
@@ -61,10 +61,10 @@ export function LoginPage({ onLogin, onAdminLogin, currentTheme, onThemeChange, 
             {language === 'ar' ? 'English 🇺🇸' : 'العربية 🇶🇦'}
           </Button>
         </div>
-
-        {/* Admin quick access */}
+        
+        {/* Admin quick access (Right) */}
         {onAdminLogin && (
-          <div className="absolute top-16 right-4 z-50">
+          <div className="absolute top-4 right-4 z-50">
             <Button
               variant="ghost"
               size="sm"

@@ -42,6 +42,13 @@ export async function onRequestPost(context) {
       };
     }
 
+    // Ensure arrays exist (for backward compatibility)
+    if (!queueData.waiting) queueData.waiting = [];
+    if (!queueData.in) queueData.in = [];
+    if (!queueData.done) queueData.done = [];
+    if (!queueData.nextCallTicket) queueData.nextCallTicket = 1;
+    if (!queueData.stats) queueData.stats = { totalEntered: 0, totalCompleted: 0, avgWaitSeconds: 0 };
+
     // Check if visitId already in queue
     const allEntries = [...queueData.waiting, ...queueData.in, ...queueData.done];
     const existing = allEntries.find(item => item.visitId === visitId);

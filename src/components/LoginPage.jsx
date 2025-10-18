@@ -112,12 +112,12 @@ export function LoginPage({ onLogin, onAdminLogin, currentTheme, onThemeChange, 
           <CardContent className="p-8">
             {/* محدد الثيمات - فوق حقل اسم المستخدم مباشرة */}
             <div className="mb-6">
-              <div className="flex flex-wrap justify-center gap-2">
+              <div className="flex flex-wrap justify-center gap-2 theme-buttons-container">
                 {enhancedMedicalThemes.map((theme) => (
                   <button
                     key={theme.id}
                     onClick={() => onThemeChange(theme.id)}
-                    className={`px-3 py-1 rounded-full text-sm font-medium transition-all border ${currentTheme === theme.id ? 'bg-theme-primary text-white border-theme-primary shadow-md' : 'bg-gray-800/60 text-gray-300 border-gray-700 hover:bg-gray-700/70'}`}
+                    className={`px-2 py-1.5 rounded-full text-xs sm:text-sm font-medium transition-all border whitespace-nowrap ${currentTheme === theme.id ? 'bg-theme-primary text-white border-theme-primary shadow-md' : 'bg-gray-800/60 text-gray-300 border-gray-700 hover:bg-gray-700/70'}`}
                     title={language === 'ar' ? theme.descriptionAr : theme.description}
                   >
                     {language === 'ar' ? theme.nameAr : theme.name}

@@ -3,6 +3,7 @@ import path from 'path';
 import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
+import cors from 'cors';
 import api from './dist_server/api/index.js';
 
 dotenv.config();
@@ -15,6 +16,7 @@ const PORT = process.env.PORT || 3000;
 const HOST = process.env.HOST || '0.0.0.0';
 
 // Security middleware
+app.use(cors()); // Enable CORS for all routes
 app.use(helmet({
   contentSecurityPolicy: false, // Disable for development
   crossOriginEmbedderPolicy: false

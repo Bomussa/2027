@@ -83,6 +83,7 @@ export const translations = {
     waiting: 'في الانتظار',
     completed: 'مكتمل',
     avgWaitTime: 'متوسط وقت الانتظار',
+    noReports: 'لا توجد تقارير متاحة',
     
     // Themes
     classic: 'كلاسيكي',
@@ -179,6 +180,7 @@ export const translations = {
     waiting: 'Waiting',
     completed: 'Completed',
     avgWaitTime: 'Avg Wait Time',
+    noReports: 'No reports available',
     
     // Themes
     classic: 'Classic',

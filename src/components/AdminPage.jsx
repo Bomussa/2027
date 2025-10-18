@@ -214,7 +214,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-400 text-sm">إجمالي المراجعين</p>
+                <p className="text-gray-400 text-xs">إجمالي المراجعين</p>
                 <p className="text-3xl font-bold text-white">{stats?.totalPatients || 0}</p>
               </div>
               <Users className="icon icon-xl text-blue-400" />
@@ -226,7 +226,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-400 text-sm">الطوابير النشطة</p>
+                <p className="text-gray-400 text-xs">الطوابير النشطة</p>
                 <p className="text-3xl font-bold text-white">{stats?.totalWaiting || 0}</p>
               </div>
               <Activity className="icon icon-xl text-green-400" />
@@ -238,7 +238,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-400 text-sm">الفحوص المكتملة</p>
+                <p className="text-gray-400 text-xs">الفحوص المكتملة</p>
                 <p className="text-3xl font-bold text-white">{stats?.totalCompleted || 0}</p>
               </div>
               <CheckCircle className="icon icon-xl text-purple-400" />
@@ -250,7 +250,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-400 text-sm">متوسط الانتظار (دقيقة)</p>
+                <p className="text-gray-400 text-xs">متوسط الانتظار (دقيقة)</p>
                 <p className="text-3xl font-bold text-white">{stats?.avgWaitTime || 0}</p>
               </div>
               <Clock className="icon icon-xl text-yellow-400" />
@@ -374,19 +374,19 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
         <Card className="bg-gray-800/50 border-gray-700">
           <CardContent className="p-6 text-center">
             <p className="text-3xl font-bold text-white">{activePins.length || 0}</p>
-            <p className="text-gray-400">أكواد نشطة</p>
+            <p className="text-gray-400 text-xs whitespace-nowrap">أكواد نشطة</p>
           </CardContent>
         </Card>
         <Card className="bg-gray-800/50 border-gray-700">
           <CardContent className="p-6 text-center">
             <p className="text-3xl font-bold text-white">{activePins.filter(p => p.status === 'used').length || 0}</p>
-            <p className="text-gray-400">مستخدمة</p>
+            <p className="text-gray-400 text-xs whitespace-nowrap">مستخدمة</p>
           </CardContent>
         </Card>
         <Card className="bg-gray-800/50 border-gray-700">
           <CardContent className="p-6 text-center">
             <p className="text-3xl font-bold text-white">{activePins.filter(p => p.status === 'active').length || 0}</p>
-            <p className="text-gray-400">متاحة</p>
+            <p className="text-gray-400 text-xs whitespace-nowrap">متاحة</p>
           </CardContent>
         </Card>
       </div>
@@ -439,17 +439,17 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
       </div>
 
       {/* Report Types */}
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <Card className="bg-gray-800/50 border-gray-700">
           <CardHeader>
             <CardTitle className="text-white">تقارير يومية</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button variant="gradient" className="w-full justify-start gap-2">
+            <Button variant="gradient" className="w-full justify-start gap-2 text-sm">
               <FileText className="w-4 h-4 flex-shrink-0" />
               <span>تقرير يومي PDF</span>
             </Button>
-            <Button variant="gradientSecondary" className="w-full justify-start gap-2">
+            <Button variant="gradientSecondary" className="w-full justify-start gap-2 text-sm">
               <FileText className="w-4 h-4 flex-shrink-0" />
               <span>تقرير يومي Excel</span>
             </Button>
@@ -461,11 +461,11 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
             <CardTitle className="text-white">تقارير أسبوعية</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button variant="gradient" className="w-full justify-start gap-2">
+            <Button variant="gradient" className="w-full justify-start gap-2 text-sm">
               <BarChart3 className="w-4 h-4 flex-shrink-0" />
               <span>تقرير إجمالي أسبوعي</span>
             </Button>
-            <Button variant="gradientSecondary" className="w-full justify-start gap-2">
+            <Button variant="gradientSecondary" className="w-full justify-start gap-2 text-sm">
               <Activity className="w-4 h-4 flex-shrink-0" />
               <span>تقرير الأداء الأسبوعي</span>
             </Button>
@@ -481,7 +481,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
         <CardContent className="space-y-3">
           {recentReports.length === 0 ? (
             <div className="text-center text-gray-400 py-8">
-              {language === 'ar' ? 'لا توجد تقارير' : 'No reports available'}
+              {t('noReports', language)}
             </div>
           ) : (
             recentReports.map((report, index) => (

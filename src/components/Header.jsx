@@ -9,6 +9,15 @@ export function Header({ currentPage, onPageChange, onThemeChange, currentTheme,
       <div className="flex items-center justify-between px-6 py-4">
         {/* Logo and Title */}
         <div className="flex items-center gap-4">
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-gray-300 hover:text-white"
+            onClick={toggleLanguage}
+          >
+            <Globe className="icon icon-md me-2" />
+            {language === 'ar' ? 'English 🇺🇸' : 'العربية 🇶🇦'}
+          </Button>
           <div className="flex items-center gap-2">
             <img src="/logo.jpeg" alt="قيادة الخدمات الطبية" className="w-16 h-16 rounded-full" />
             <div className="text-right">
@@ -23,7 +32,7 @@ export function Header({ currentPage, onPageChange, onThemeChange, currentTheme,
           <h2 className="text-white font-medium">Welcome to the Medical Committee System</h2>
         </div>
 
-        {/* Right Controls */}
+        {/* Left Controls */}
         <div className="flex items-center gap-2">
           <Button
             variant="ghost"
@@ -35,15 +44,7 @@ export function Header({ currentPage, onPageChange, onThemeChange, currentTheme,
             Admin
           </Button>
 
-          <Button
-            variant="ghost"
-            size="sm"
-            className="text-gray-300 hover:text-white"
-            onClick={toggleLanguage}
-          >
-            <Globe className="icon icon-md me-2" />
-            {language === 'ar' ? 'English 🇺🇸' : 'العربية 🇶🇦'}
-          </Button>
+
 
           <Button
             variant="ghost"

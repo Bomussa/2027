@@ -10,7 +10,7 @@ function resolveApiBases() {
   // نفس الأصل يعمل في الإنتاج أو عند وجود وكيل proxy
   bases.push(window.location.origin)
 
-  // إزالة التكرارات
+    // إزالة التكرارات
   return Array.from(new Set(bases))
 }
 

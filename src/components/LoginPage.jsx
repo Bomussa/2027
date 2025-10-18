@@ -152,10 +152,10 @@ export function LoginPage({ onLogin, onAdminLogin, currentTheme, onThemeChange, 
                     value={patientId}
                     onChange={(e) => setPatientId(e.target.value)}
                     className="bg-gray-700/50 border-gray-600 text-white placeholder-gray-400"
-                    pattern="^[0-9]{2,16}$"
-                    title={language === 'ar' ? 'الرقم العسكري يجب أن يتكون من 2 إلى 16 رقمًا' : 'Military number must be 2-16 digits'}
+                    pattern="^[0-9]{2,12}$"
+                    title={language === 'ar' ? 'الرقم العسكري يجب أن يتكون من 2 إلى 12 رقمًا' : 'Military number must be 2-12 digits'}
                     minLength={2}
-                    maxLength={16}
+                    maxLength={12}
                     required
                   />
                 </div>

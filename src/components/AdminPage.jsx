@@ -586,7 +586,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
   }
 
   return (
-    <div className="min-h-screen bg-gray-900">
+    <div className="flex min-h-screen overflow-hidden bg-gray-900">
       {/* Top Header */}
       <header className="border-b border-gray-800 bg-gray-900/50 backdrop-blur-sm">
         <div className="flex items-center justify-between px-6 py-4">
@@ -646,7 +646,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
 
       <div className="flex">
         {renderSidebar()}
-        <main className="flex-1 p-6">
+        <div className="flex-1 p-6 overflow-y-auto overflow-x-hidden w-full">
           {currentView === 'dashboard' && renderDashboard()}
           {currentView === 'enhanced' && (
             <EnhancedAdminDashboard
@@ -661,7 +661,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
             <ClinicsConfiguration language={language} />
           )}
           {currentView === 'settings' && renderSettings()}
-        </main>
+        </div>
       </div>
     </div>
   )

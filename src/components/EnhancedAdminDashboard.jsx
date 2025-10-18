@@ -269,8 +269,8 @@ export function EnhancedAdminDashboard({ language, onLogout }) {
                   clinics.map((clinic) => (
                     <div key={clinic.id} className="flex items-center justify-between p-3 border rounded-lg">
                       <div>
-                        <div className="font-medium">{clinic.name_ar}</div>
-                        <div className="text-sm text-gray-500">{clinic.name_en}</div>
+                        <div className="font-medium text-center">{clinic.name_ar}</div>
+                        <div className="text-sm text-gray-500 text-center">{clinic.name_en}</div>
                       </div>
                       <div className="text-left">
                         <div className="text-sm font-medium">

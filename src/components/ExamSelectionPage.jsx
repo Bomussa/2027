@@ -7,8 +7,8 @@ import { t } from '../lib/i18n'
 
 export function ExamSelectionPage({ onExamSelect, onBack, language, toggleLanguage }) {
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" data-test="exam-selection-page">
-      <div className="w-full max-w-4xl space-y-8">
+    <div className="min-h-screen flex items-center justify-center p-4 overflow-hidden" data-test="exam-selection-page">
+      <div className="w-full max-w-4xl space-y-8 h-full flex flex-col justify-center">
         {/* Language Selector */}
         <div className="absolute top-4 right-4">
           <Button

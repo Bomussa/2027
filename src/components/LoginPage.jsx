@@ -47,8 +47,8 @@ export function LoginPage({ onLogin, onAdminLogin, currentTheme, onThemeChange, 
   }
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 relative">
-      <div className="w-full max-w-md space-y-8">
+    <div className="min-h-screen flex items-center justify-center p-4 relative overflow-hidden">
+      <div className="w-full max-w-md space-y-8 h-full flex flex-col justify-center">
         {/* Language Selector */}
         <div className="absolute top-4 right-4">
           <Button

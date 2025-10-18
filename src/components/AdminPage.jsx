@@ -126,7 +126,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
   }
 
   const renderSidebar = () => (
-    <div className="w-64 bg-gray-800/50 border-r border-gray-700 p-4">
+    <div className="w-64 bg-gray-800/50 border-r border-gray-700 p-4 z-10">
       <div className="flex items-center gap-3 mb-8">
         <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-yellow-500 rounded-full flex items-center justify-center">
           <span className="text-white font-bold">⚕️</span>
@@ -652,7 +652,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
         </div>
       </div>
 
-      <div className="flex">
+      <div className="flex relative">
         {renderSidebar()}
         <main className="flex-1 p-6">
           {currentView === 'dashboard' && renderDashboard()}

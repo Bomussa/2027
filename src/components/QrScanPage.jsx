@@ -202,6 +202,7 @@ export function QrScanPage({ language, toggleLanguage }) {
               variant="ghost"
               size="sm"
               onClick={toggleLanguage}
+              className="absolute top-4 left-4"
             >
               {language === 'ar' ? '🇺🇸 EN' : '🇶🇦 AR'}
             </Button>

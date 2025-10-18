@@ -171,7 +171,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
 
       <div className="max-w-4xl mx-auto space-y-6">
         {/* Language Selector */}
-        <div className="absolute top-4 right-4">
+        <div className="absolute top-4 left-4">
           <Button
             variant="ghost"
             size="sm"

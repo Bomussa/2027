@@ -144,7 +144,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
           onClick={() => setCurrentView('dashboard')}
         >
           <BarChart3 className="icon icon-md me-3" />
-          Dashboard
+          لوحة التحكم
         </Button>
         <Button
           variant={currentView === 'enhanced' ? 'secondary' : 'ghost'}
@@ -160,7 +160,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
           onClick={() => setCurrentView('queues')}
         >
           <Users className="icon icon-md me-3" />
-          Queue Management
+          إدارة الطوابير
         </Button>
         <Button
           variant={currentView === 'pins' ? 'secondary' : 'ghost'}
@@ -168,7 +168,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
           onClick={() => setCurrentView('pins')}
         >
           <Lock className="icon icon-md me-3" />
-          PIN Management
+          إدارة الأرقام السرية
         </Button>
         <Button
           variant={currentView === 'reports' ? 'secondary' : 'ghost'}
@@ -176,14 +176,14 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
           onClick={() => setCurrentView('reports')}
         >
           <FileText className="icon icon-md me-3" />
-          Reports
+          التقارير
         </Button>
         <Button
           variant={currentView === 'clinics' ? 'secondary' : 'ghost'}
           className="w-full justify-start"
           onClick={() => setCurrentView('clinics')}
         >
-          <Users className="icon icon-md me-3" />
+          <Settings className="icon icon-md me-3" />
           تكوين العيادات
         </Button>
         <Button
@@ -192,7 +192,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
           onClick={() => setCurrentView('settings')}
         >
           <Settings className="icon icon-md me-3" />
-          Settings
+          الإعدادات
         </Button>
       </nav>
     </div>
@@ -201,7 +201,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
   const renderDashboard = () => (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+        <h1 className="text-2xl font-bold text-white">لوحة التحكم</h1>
         <Button variant="outline" onClick={loadStats} disabled={loading}>
           <RefreshCw className="icon icon-md me-2" />
           تحديث
@@ -250,9 +250,8 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-400 text-sm">متوسط الانتظار</p>
+                <p className="text-gray-400 text-sm">متوسط الانتظار (دقيقة)</p>
                 <p className="text-3xl font-bold text-white">{stats?.avgWaitTime || 0}</p>
-                <p className="text-gray-400 text-sm">دقيقة</p>
               </div>
               <Clock className="icon icon-xl text-yellow-400" />
             </div>
@@ -313,7 +312,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
                     <h3 className="text-white font-semibold text-lg mb-2">{queue.name || queue.nameAr}</h3>
-                    <div className="grid grid-cols-3 gap-4">
+                      <div className="grid grid-cols-3 gap-4 text-center">
                       <div>
                         <p className="text-2xl font-bold text-white">{queue.current || 0}</p>
                         <p className="text-gray-400 text-sm">الرقم الحالي</p>
@@ -328,7 +327,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
                       </div>
                     </div>
                   </div>
-                  <div className="flex flex-col gap-2">
+                      <div className="flex flex-col gap-2 ml-4">
                     <Button
                       variant="outline"
                       size="sm"
@@ -623,6 +622,15 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
       <div className="border-b border-gray-800 bg-gray-800/30">
         <div className="flex items-center justify-between px-6 py-3">
           <div className="flex items-center gap-3">
+            <Button
+              variant="ghost"
+              size="sm"
+              className="text-gray-300 hover:text-white"
+              onClick={toggleLanguage}
+            >
+              <Globe className="icon icon-md me-2" />
+              {language === 'ar' ? 'English 🇺🇸' : 'العربية 🇶🇦'}
+            </Button>
             <div className="w-10 h-10 bg-gradient-to-br from-red-500 to-yellow-500 rounded-full flex items-center justify-center">
               <span className="text-white font-bold">⚕️</span>
             </div>

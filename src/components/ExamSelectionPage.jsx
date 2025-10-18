@@ -10,7 +10,7 @@ export function ExamSelectionPage({ onExamSelect, onBack, language, toggleLangua
     <div className="min-h-screen flex items-center justify-center p-4" data-test="exam-selection-page">
       <div className="w-full max-w-4xl space-y-8">
         {/* Language Selector */}
-        <div className="absolute top-4 right-4">
+        <div className="absolute top-4 left-4">
           <Button
             variant="ghost"
             size="sm"
@@ -23,7 +23,7 @@ export function ExamSelectionPage({ onExamSelect, onBack, language, toggleLangua
         </div>
 
         {/* Back Button */}
-        <div className="absolute top-4 left-4">
+        <div className="absolute top-4 right-4">
           <Button
             variant="ghost"
             size="sm"

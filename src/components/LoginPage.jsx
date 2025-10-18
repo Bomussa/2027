@@ -50,7 +50,7 @@ export function LoginPage({ onLogin, onAdminLogin, currentTheme, onThemeChange, 
     <div className="min-h-screen flex items-center justify-center p-4 relative">
       <div className="w-full max-w-md space-y-8">
         {/* Language Selector */}
-        <div className="absolute top-4 right-4">
+        <div className="absolute top-4 left-4">
           <Button
             variant="ghost"
             size="sm"
@@ -152,10 +152,10 @@ export function LoginPage({ onLogin, onAdminLogin, currentTheme, onThemeChange, 
                     value={patientId}
                     onChange={(e) => setPatientId(e.target.value)}
                     className="bg-gray-700/50 border-gray-600 text-white placeholder-gray-400"
-                    pattern="^[0-9]{2,10}$"
-                    title={language === 'ar' ? 'الرقم العسكري يجب أن يتكون من 2 إلى 10 أرقام' : 'Military number must be 2-10 digits'}
+                    pattern="^[0-9]{2,16}$"
+                    title={language === 'ar' ? 'الرقم العسكري يجب أن يتكون من 2 إلى 16 رقمًا' : 'Military number must be 2-16 digits'}
                     minLength={2}
-                    maxLength={10}
+                    maxLength={16}
                     required
                   />
                 </div>

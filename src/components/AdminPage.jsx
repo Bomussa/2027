@@ -22,6 +22,7 @@ import {
   Globe
 } from 'lucide-react'
 import { themes } from '../lib/utils'
+import { enhancedMedicalThemes } from '../lib/enhanced-themes'
 import { t } from '../lib/i18n'
 import api from '../lib/api'
 
@@ -38,10 +39,12 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
     loadStats()
     loadActivePins()
     loadQueues()
+    loadRecentReports()
     const interval = setInterval(() => {
       loadStats()
       loadActivePins()
       loadQueues()
+      loadRecentReports()
     }, 5000)
     return () => clearInterval(interval)
   }, [])
@@ -74,6 +77,16 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
       setActivePins(data.pins || [])
     } catch (error) {
       console.error('Failed to load pins:', error)
+    }
+  }
+
+  const loadRecentReports = async () => {
+    try {
+      const data = await api.getRecentReports(adminCode)
+      setRecentReports(data.reports || [])
+    } catch (error) {
+      console.error('Failed to load recent reports:', error)
+      setRecentReports([])
     }
   }
 
@@ -214,7 +227,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-400 text-xs">إجمالي المراجعين</p>
+                <p className="text-gray-400 text-sm">إجمالي المنتظرين</p>
                 <p className="text-3xl font-bold text-white">{stats?.totalPatients || 0}</p>
               </div>
               <Users className="icon icon-xl text-blue-400" />
@@ -226,7 +239,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-400 text-xs">الطوابير النشطة</p>
+                <p className="text-gray-400 text-sm">الطوابير النشطة</p>
                 <p className="text-3xl font-bold text-white">{stats?.totalWaiting || 0}</p>
               </div>
               <Activity className="icon icon-xl text-green-400" />
@@ -238,7 +251,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-400 text-xs">الفحوص المكتملة</p>
+                <p className="text-gray-400 text-sm">الفحوص المكتملة</p>
                 <p className="text-3xl font-bold text-white">{stats?.totalCompleted || 0}</p>
               </div>
               <CheckCircle className="icon icon-xl text-purple-400" />
@@ -250,7 +263,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-400 text-xs">متوسط الانتظار (دقيقة)</p>
+                <p className="text-gray-400 text-sm">متوسط الانتظار (دقيقة)</p>
                 <p className="text-3xl font-bold text-white">{stats?.avgWaitTime || 0}</p>
               </div>
               <Clock className="icon icon-xl text-yellow-400" />
@@ -374,19 +387,19 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
         <Card className="bg-gray-800/50 border-gray-700">
           <CardContent className="p-6 text-center">
             <p className="text-3xl font-bold text-white">{activePins.length || 0}</p>
-            <p className="text-gray-400 text-xs whitespace-nowrap">أكواد نشطة</p>
+            <p className="text-gray-400 text-sm whitespace-nowrap">أكواد نشطة</p>
           </CardContent>
         </Card>
         <Card className="bg-gray-800/50 border-gray-700">
           <CardContent className="p-6 text-center">
             <p className="text-3xl font-bold text-white">{activePins.filter(p => p.status === 'used').length || 0}</p>
-            <p className="text-gray-400 text-xs whitespace-nowrap">مستخدمة</p>
+            <p className="text-gray-400 text-sm whitespace-nowrap">مستخدمة</p>
           </CardContent>
         </Card>
         <Card className="bg-gray-800/50 border-gray-700">
           <CardContent className="p-6 text-center">
             <p className="text-3xl font-bold text-white">{activePins.filter(p => p.status === 'active').length || 0}</p>
-            <p className="text-gray-400 text-xs whitespace-nowrap">متاحة</p>
+            <p className="text-gray-400 text-sm whitespace-nowrap">متاحة</p>
           </CardContent>
         </Card>
       </div>
@@ -442,14 +455,14 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
         <Card className="bg-gray-800/50 border-gray-700">
           <CardHeader>
-            <CardTitle className="text-white">تقارير يومية</CardTitle>
+            <CardTitle className="text-white text-lg">تقارير يومية</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button variant="gradient" className="w-full justify-start gap-2 text-sm">
+            <Button variant="gradient" className="w-full justify-start gap-2 text-xs">
               <FileText className="w-4 h-4 flex-shrink-0" />
               <span>تقرير يومي PDF</span>
             </Button>
-            <Button variant="gradientSecondary" className="w-full justify-start gap-2 text-sm">
+            <Button variant="gradientSecondary" className="w-full justify-start gap-2 text-xs">
               <FileText className="w-4 h-4 flex-shrink-0" />
               <span>تقرير يومي Excel</span>
             </Button>
@@ -458,14 +471,14 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
 
         <Card className="bg-gray-800/50 border-gray-700">
           <CardHeader>
-            <CardTitle className="text-white">تقارير أسبوعية</CardTitle>
+            <CardTitle className="text-white text-lg">تقارير أسبوعية</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <Button variant="gradient" className="w-full justify-start gap-2 text-sm">
+            <Button variant="gradient" className="w-full justify-start gap-2 text-xs">
               <BarChart3 className="w-4 h-4 flex-shrink-0" />
               <span>تقرير إجمالي أسبوعي</span>
             </Button>
-            <Button variant="gradientSecondary" className="w-full justify-start gap-2 text-sm">
+            <Button variant="gradientSecondary" className="w-full justify-start gap-2 text-xs">
               <Activity className="w-4 h-4 flex-shrink-0" />
               <span>تقرير الأداء الأسبوعي</span>
             </Button>
@@ -506,7 +519,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
   )
 
   const renderSettings = () => {
-    const { enhancedMedicalThemes } = require('../lib/enhanced-themes')
+    
 
     return (
       <div className="space-y-6">
@@ -549,33 +562,14 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
           <CardContent>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
               {enhancedMedicalThemes.map((theme) => (
-                <div
+                <button
                   key={theme.id}
-                  onClick={() => onThemeChange && onThemeChange(theme.id)}
-                  className={`p-4 border rounded-lg cursor-pointer transition-all ${currentTheme === theme.id
-                    ? 'border-yellow-500 bg-gray-700/50'
-                    : 'border-gray-600 hover:border-yellow-500'
-                    }`}
+                  onClick={() => onThemeChange(theme.id)}
+                  className={`p-2 rounded-lg text-sm font-medium transition-all border ${currentTheme === theme.id ? 'border-theme-primary ring-2 ring-theme-primary/50' : 'border-gray-700 hover:border-gray-500'}`}
+                  style={{ background: theme.gradients.primary, color: 'white' }}
                 >
-                  <div className="flex gap-2 mb-2">
-                    <div
-                      className="w-4 h-4 rounded-full"
-                      style={{ backgroundColor: theme.colors.primary }}
-                    />
-                    <div
-                      className="w-4 h-4 rounded-full"
-                      style={{ backgroundColor: theme.colors.secondary }}
-                    />
-                    <div
-                      className="w-4 h-4 rounded-full"
-                      style={{ backgroundColor: theme.colors.accent }}
-                    />
-                  </div>
-                  <p className="text-white font-medium text-sm">{theme.nameAr || theme.name}</p>
-                  {currentTheme === theme.id && (
-                    <p className="text-green-400 text-xs mt-1">✓ نشط</p>
-                  )}
-                </div>
+                  {language === 'ar' ? theme.nameAr : theme.name}
+                </button>
               ))}
             </div>
           </CardContent>

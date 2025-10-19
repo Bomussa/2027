@@ -1,5 +1,5 @@
 /**
- * Queue Enter Endpoint (Simplified & Working)
+ * Queue Enter Endpoint (Fixed)
  * POST /api/v1/queue/:clinic/enter
  * Body: { pin: "01" }
  */
@@ -31,7 +31,7 @@ export async function onRequestPost(context) {
     const pinsKey = `pins:${clinic}:${dateKey}`;
     const pinsData = await env.KV_PINS.get(pinsKey, { type: 'json' });
 
-    if (!pinsData || !pinsData.taken.includes(pin)) {
+    if (!pinsData || !pinsData.taken || !pinsData.taken.includes(pin)) {
       return jsonResponse({
         error: 'Invalid PIN',
         message: 'الرقم غير صالح أو لم يتم إصداره'
@@ -45,6 +45,11 @@ export async function onRequestPost(context) {
     // Initialize if not exists
     if (!queueData) {
       queueData = initializeQueue(clinic, dateKey);
+    }
+
+    // Ensure entries array exists
+    if (!queueData.entries) {
+      queueData.entries = [];
     }
 
     // Check if PIN already in queue

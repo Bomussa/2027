@@ -17,7 +17,7 @@ const acquireLock = async (kvLocks, key, ttl = 3000) => {
   const lockKey = `lock:${key}`;
   const start = Date.now();
   while (Date.now() - start < ttl) {
-    const acquired = await kvLocks.put(lockKey, "1", { expirationTtl: 3, nx: true });
+    const acquired = await kvLocks.put(lockKey, "1", { expirationTtl: 60, nx: true });
     if (acquired === null) return true; // Lock acquired
     await new Promise(r => setTimeout(r, 100));
   }

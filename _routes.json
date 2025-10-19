@@ -4,6 +4,7 @@
     "/api/*"
   ],
   "exclude": [
+    "/api/v1/events/stream"
     "/_headers",
     "/_redirects",
     "/static/*",

@@ -26,41 +26,46 @@ export async function onRequestPost(context) {
       }, 400);
     }
 
-    // Get current queue
-    const queueKey = `queue:${clinic}`;
-    const queueData = await env.KV_QUEUES.get(queueKey, { type: 'json' });
-
-    if (!queueData) {
+    const kv = env.KV_QUEUES;
+    
+    // Get current status
+    const statusKey = `queue:status:${clinic}`;
+    const status = await kv.get(statusKey, 'json') || { current: 0, length: 0 };
+    
+    // Get counter to verify there are patients
+    const counterKey = `queue:counter:${clinic}`;
+    const counter = await kv.get(counterKey, 'text');
+    const total = counter ? parseInt(counter) : 0;
+    
+    if (total === 0) {
       return jsonResponse({
         success: false,
-        error: 'Queue not found'
+        error: 'No patients in queue'
       }, 404);
     }
-
-    // Find next waiting patient
-    const nextPatient = queueData.patients.find(p => p.status === 'WAITING' && p.number === queueData.current);
-
-    if (!nextPatient) {
+    
+    // Advance to next patient
+    const nextNumber = (status.current || 0) + 1;
+    
+    if (nextNumber > total) {
       return jsonResponse({
         success: false,
-        error: 'No waiting patients'
+        error: 'No more patients waiting'
       }, 404);
     }
-
-    // Mark as in service
-    nextPatient.status = 'IN_SERVICE';
-    nextPatient.called_at = new Date().toISOString();
-
-    // Save updated queue
-    await env.KV_QUEUES.put(queueKey, JSON.stringify(queueData));
-
+    
+    // Update status
+    status.current = nextNumber;
+    await kv.put(statusKey, JSON.stringify(status), {
+      expirationTtl: 86400
+    });
+    
     // Log event
     const eventKey = `event:${clinic}:${Date.now()}`;
     await env.KV_EVENTS.put(eventKey, JSON.stringify({
-      type: 'YOUR_TURN',
+      type: 'CALL_NEXT',
       clinic: clinic,
-      user: nextPatient.user,
-      number: nextPatient.number,
+      number: nextNumber,
       timestamp: new Date().toISOString()
     }), {
       expirationTtl: 3600 // 1 hour
@@ -69,9 +74,8 @@ export async function onRequestPost(context) {
     return jsonResponse({
       success: true,
       clinic: clinic,
-      user: nextPatient.user,
-      number: nextPatient.number,
-      status: 'IN_SERVICE'
+      number: nextNumber,
+      waiting: Math.max(0, total - nextNumber)
     });
 
   } catch (error) {

@@ -1,4 +1,4 @@
-// Queue Done - Mark patient as done and unlock next clinic
+// Queue Done - Mark patient as done and advance queue
 // POST /api/v1/queue/done
 // Body: { clinic, user, pin }
 
@@ -39,7 +39,6 @@ export async function onRequestPost(context) {
       }, 404);
     }
     
-    
     // Verify PIN if provided (proof of completion)
     if (pin) {
       // Get today's PIN for this clinic
@@ -64,6 +63,21 @@ export async function onRequestPost(context) {
       expirationTtl: 86400
     });
     
+    // Update queue status - set current to this user's number
+    const statusKey = `queue:status:${clinic}`;
+    const status = await kv.get(statusKey, { type: 'json' }) || { current: null, served: [] };
+    
+    status.current = userQueue.number;
+    status.served.push({
+      number: userQueue.number,
+      user: user,
+      done_at: userQueue.done_at
+    });
+    
+    await kv.put(statusKey, JSON.stringify(status), {
+      expirationTtl: 86400
+    });
+    
     // Store completion proof (unlock next clinic)
     const completionKey = `completion:${user}:${clinic}`;
     await kv.put(completionKey, JSON.stringify({
@@ -73,14 +87,6 @@ export async function onRequestPost(context) {
       pin: pin || 'NO_PIN',
       completed_at: new Date().toISOString()
     }), {
-      expirationTtl: 86400
-    });
-    
-    // Update queue status in KV for backward compatibility
-    const statusKey = `queue:status:${clinic}`;
-    const status = await kv.get(statusKey, 'json') || { current: 0, length: 0 };
-    status.current = (status.current || 0) + 1;
-    await kv.put(statusKey, JSON.stringify(status), {
       expirationTtl: 86400
     });
     

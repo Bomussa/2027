@@ -30,21 +30,29 @@ export async function onRequest(context) {
     
     const kv = env.KV_QUEUES;
     
-    // Get queue status with cache bypass
+    // Get queue status
     const statusKey = `queue:status:${clinic}`;
-    const status = await kv.get(statusKey, { type: 'json', cacheTtl: 0 }) || { current: 0, length: 0 };
+    const status = await kv.get(statusKey, { type: 'json' }) || { current: null, served: [] };
     
-    // Get counter with cache bypass
-    const counterKey = `queue:counter:${clinic}`;
-    const counter = await kv.get(counterKey, { type: 'text', cacheTtl: 0 });
-    const total = counter ? parseInt(counter) : 0;
+    // Get queue list
+    const listKey = `queue:list:${clinic}`;
+    const queueList = await kv.get(listKey, { type: 'json' }) || [];
+    
+    // Calculate waiting
+    let waiting = 0;
+    if (status.current) {
+      waiting = queueList.filter(item => item.number > status.current).length;
+    } else {
+      waiting = queueList.length;
+    }
     
     return new Response(JSON.stringify({
       success: true,
       clinic: clinic,
-      current: status.current || 0,
-      length: total,
-      waiting: Math.max(0, total - (status.current || 0))
+      current: status.current,
+      current_display: status.served.length + 1,
+      length: queueList.length,
+      waiting: waiting
     }), {
       status: 200,
       headers: { 

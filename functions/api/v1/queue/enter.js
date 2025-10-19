@@ -31,10 +31,12 @@ async function acquireLock(kv, lockKey, lockId, timeout = 30000) {
         const lockMeta = await kv.getWithMetadata(lockKey, { type: 'text', cacheTtl: 0 });
         if (lockMeta.metadata && lockMeta.metadata.acquired) {
           const lockAge = Date.now() - lockMeta.metadata.acquired;
-          // If lock is older than 20 seconds, consider it stale
-          if (lockAge > 20000) {
+          // If lock is older than 5 seconds, consider it stale
+          if (lockAge > 5000) {
             // Try to break stale lock
             await kv.delete(lockKey);
+            await new Promise(resolve => setTimeout(resolve, 50));
+            continue;
           } else {
             // Lock is fresh, wait with exponential backoff
             const backoff = Math.min(2000, 100 * Math.pow(1.5, attempts % 8)) + Math.random() * 100;
@@ -46,17 +48,16 @@ async function acquireLock(kv, lockKey, lockId, timeout = 30000) {
       
       // Try to acquire lock
       await kv.put(lockKey, lockId, {
-        expirationTtl: 30, // Shorter TTL
+        expirationTtl: 10, // Very short TTL
         metadata: { 
           acquired: Date.now(), 
           id: lockId,
-          attempt: attempts,
-          pid: Math.random().toString(36).substr(2, 9)
+          attempt: attempts
         }
       });
       
-      // Wait longer to ensure propagation (critical for consistency)
-      await new Promise(resolve => setTimeout(resolve, 200 + Math.random() * 100));
+      // Wait for propagation (reduced for speed)
+      await new Promise(resolve => setTimeout(resolve, 50 + Math.random() * 50));
       
       // Verify we got the lock with cache bypass
       const currentLock = await kv.get(lockKey, { 
@@ -65,12 +66,7 @@ async function acquireLock(kv, lockKey, lockId, timeout = 30000) {
       });
       
       if (currentLock === lockId) {
-        // Double verification after additional delay
-        await new Promise(resolve => setTimeout(resolve, 100));
-        const finalCheck = await kv.get(lockKey, { type: 'text', cacheTtl: 0 });
-        if (finalCheck === lockId) {
-          return true;
-        }
+        return true;
       }
       
     } catch (e) {

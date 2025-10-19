@@ -1,8 +1,11 @@
 /**
- * PIN Status Endpoint (Enhanced with Reset action)
+ * PIN Status Endpoint (Counter-Based)
  * GET /api/v1/pin/:clinic/status - Get PIN status
  * GET /api/v1/pin/:clinic/status?action=reset - Reset PINs for the day
  */
+
+const MAX_PINS = 30;
+const RESERVE_THRESHOLD = 20;
 
 export async function onRequestGet(context) {
   const { request, env, params } = context;
@@ -21,43 +24,61 @@ export async function onRequestGet(context) {
     const qatarTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Qatar' }));
     const dateKey = qatarTime.toISOString().split('T')[0];
 
-    const pinsKey = `pins:${clinic}:${dateKey}`;
-
     // Handle reset action
     if (action === 'reset') {
-      return await handleReset(env, clinic, dateKey, pinsKey);
+      return await handleReset(env, clinic, dateKey);
     }
 
     // Default: Return status
-    let pinsData = await env.KV_PINS.get(pinsKey, { type: 'json' });
+    const counterKey = `counter:${clinic}:${dateKey}`;
+    let counter = await env.KV_PINS.get(counterKey);
+    
+    if (!counter) {
+      counter = 0;
+    } else {
+      counter = parseInt(counter, 10);
+    }
 
-    if (!pinsData) {
-      return jsonResponse({
-        clinic: clinic,
-        date: dateKey,
-        initialized: false,
-        available: 20,
-        reserve: 10,
-        taken: 0,
-        issued: 0,
-        reserve_mode: false
-      }, 200);
+    // Calculate available, reserve, and taken
+    const issued = counter;
+    const taken = counter;
+    const available = Math.max(0, RESERVE_THRESHOLD - counter);
+    const reserve = Math.max(0, MAX_PINS - Math.max(counter, RESERVE_THRESHOLD));
+    const reserveMode = counter >= RESERVE_THRESHOLD;
+
+    // Get list of taken PINs
+    const takenList = [];
+    for (let i = 1; i <= counter; i++) {
+      takenList.push(i.toString().padStart(2, '0'));
+    }
+
+    // Get list of available PINs
+    const availableList = [];
+    for (let i = counter + 1; i <= Math.min(counter + available, RESERVE_THRESHOLD); i++) {
+      availableList.push(i.toString().padStart(2, '0'));
+    }
+
+    // Get list of reserve PINs
+    const reserveList = [];
+    for (let i = RESERVE_THRESHOLD + 1; i <= MAX_PINS; i++) {
+      if (i > counter) {
+        reserveList.push(i.toString().padStart(2, '0'));
+      }
     }
 
     return jsonResponse({
       clinic: clinic,
       date: dateKey,
-      initialized: true,
-      available: pinsData.available.length,
-      reserve: pinsData.reserve.length,
-      taken: pinsData.taken.length,
-      issued: pinsData.issued,
-      reserve_mode: pinsData.reserve_mode,
-      reset_at: pinsData.reset_at,
+      initialized: counter > 0,
+      available: available,
+      reserve: reserve,
+      taken: taken,
+      issued: issued,
+      reserve_mode: reserveMode,
       pins_list: {
-        available: pinsData.available,
-        reserve: pinsData.reserve,
-        taken: pinsData.taken
+        available: availableList,
+        reserve: reserveList,
+        taken: takenList
       }
     }, 200);
 
@@ -66,12 +87,10 @@ export async function onRequestGet(context) {
   }
 }
 
-async function handleReset(env, clinic, dateKey, pinsKey) {
-  // Initialize new PINs
-  const pinsData = initializeDailyPins(dateKey);
-  
-  // Save
-  await env.KV_PINS.put(pinsKey, JSON.stringify(pinsData));
+async function handleReset(env, clinic, dateKey) {
+  // Reset counter to 0
+  const counterKey = `counter:${clinic}:${dateKey}`;
+  await env.KV_PINS.put(counterKey, '0');
 
   // Also reset queue for this clinic
   const queueKey = `queue:${clinic}:${dateKey}`;
@@ -102,37 +121,10 @@ async function handleReset(env, clinic, dateKey, pinsKey) {
     action: 'reset',
     clinic: clinic,
     date: dateKey,
-    available: pinsData.available.length,
-    reserve: pinsData.reserve.length,
+    available: RESERVE_THRESHOLD,
+    reserve: MAX_PINS - RESERVE_THRESHOLD,
     timestamp: new Date().toISOString()
   }, 200);
-}
-
-function initializeDailyPins(date) {
-  const available = [];
-  const reserve = [];
-
-  // Generate PINs 01-20 (available)
-  for (let i = 1; i <= 20; i++) {
-    available.push(String(i).padStart(2, '0'));
-  }
-
-  // Generate PINs 21-30 (reserve)
-  for (let i = 21; i <= 30; i++) {
-    reserve.push(String(i).padStart(2, '0'));
-  }
-
-  return {
-    date: date,
-    available: available,
-    reserve: reserve,
-    taken: [],
-    issued: 0,
-    reserve_mode: false,
-    last_issued_at: null,
-    reset_at: new Date().toISOString(),
-    created_at: new Date().toISOString()
-  };
 }
 
 async function logEvent(kvEvents, event) {

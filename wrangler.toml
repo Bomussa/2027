@@ -26,10 +26,6 @@ id = "99b12b0fa33e4d57a8bd1447ab80236f"
 binding = "KV_CACHE"
 id = "1d3d4e6c12174b7797b356234794e7e5"
 
-[[r2_buckets]]
-binding = "R2_REPORTS"
-bucket_name = "mmc-reports"
-
 [vars]
 TIMEZONE = "Asia/Qatar"
 PIN_SECRET = "6a1f1a07787035f332b188d623a6395dc50de51bf90a62238ed25b5519ca3194"
@@ -42,4 +38,3 @@ NOTIFY_KEY = "https://notify.mmc-mms.com/webhook"
 # - "0 0 * * *" (00:00 Qatar time) - Reset daily PINs
 # - "*/1 * * * *" (Every minute) - Notify poller
 # - "59 23 * * *" (23:59 Qatar time) - Daily backup and reports
-

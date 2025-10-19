@@ -1,21 +1,6 @@
 {
   "version": 1,
-  "include": [
-    "/*"
-  ],
-  "exclude": [
-    "/_headers",
-    "/_redirects",
-    "/static/*",
-    "/assets/*",
-    "/images/*",
-    "/css/*",
-    "/js/*"
-  ],
-  "functions": [
-    {
-      "pattern": "/api/v1/events/stream",
-      "script": "functions/api/v1/events/stream.js"
-    }
-  ]
+  "include": ["/api/*", "/admin/*"],
+  "exclude": ["/*"]
 }
+

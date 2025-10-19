@@ -97,6 +97,19 @@ class ApiService {
   // ==========================================
 
   /**
+   * تسجيل دخول المريض
+   * Backend: POST /api/v1/patient/login
+   * Body: { patientId, gender }
+   * Response: { success, data }
+   */
+  async patientLogin(patientId, gender) {
+    return this.request(`${API_VERSION}/patient/login`, {
+      method: 'POST',
+      body: JSON.stringify({ patientId, gender })
+    })
+  }
+
+  /**
    * دخول الدور في عيادة
    * Backend: POST /api/v1/queue/enter
    * Body: { clinic, user }

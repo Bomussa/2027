@@ -192,9 +192,14 @@ function App() {
 
   const handleLogin = async ({ patientId, gender }) => {
     try {
-      const data = await api.enterQueue({ patientId, gender })
-      setPatientData(data)
-      setCurrentView("examSelection")
+      // First login the patient
+      const loginResponse = await api.patientLogin(patientId, gender)
+      if (loginResponse.success) {
+        setPatientData(loginResponse.data)
+        setCurrentView("examSelection")
+      } else {
+        throw new Error(loginResponse.error || 'Login failed')
+      }
     } catch (error) {
       console.error("Login failed:", error)
       alert(t('loginFailed', language))

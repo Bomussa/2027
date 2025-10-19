@@ -26,8 +26,8 @@ export async function onRequest(context) {
     });
   }
 
-  // 2. Rate Limiting (only for API routes)
-  if (url.pathname.startsWith('/api/')) {
+  // 2. Rate Limiting (only for API and admin routes)
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/admin/')) {
     const clientIP = request.headers.get('CF-Connecting-IP') || 'unknown';
     const rateLimitKey = `${clientIP}:${Math.floor(Date.now() / RATE_LIMIT_WINDOW)}`;
     
@@ -65,8 +65,8 @@ export async function onRequest(context) {
     }
   }
 
-  // 3. CORS Headers for API routes
-  if (url.pathname.startsWith('/api/')) {
+  // 3. CORS Headers for API and admin routes
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/admin/')) {
     // Handle preflight
     if (request.method === 'OPTIONS') {
       return new Response(null, {
@@ -84,8 +84,8 @@ export async function onRequest(context) {
   // Continue to the next handler
   const response = await next();
   
-  // Add CORS headers to response if API route
-  if (url.pathname.startsWith('/api/')) {
+  // Add CORS headers to response if API or admin route
+  if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/admin/')) {
     const newHeaders = new Headers(response.headers);
     newHeaders.set('Access-Control-Allow-Origin', '*');
     newHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');

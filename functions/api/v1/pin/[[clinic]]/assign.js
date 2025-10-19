@@ -15,7 +15,7 @@ const RESERVE_THRESHOLD = 20; // When to switch to reserve mode
  * @param {number} ttl - Lock timeout in milliseconds
  * @returns {Promise<string>} - Lock ID if acquired
  */
-const acquireLock = async (kvLocks, key, ttl = 15000) => {
+const acquireLock = async (kvLocks, key, ttl = 20000) => {
   const lockKey = `lock:${key}`;
   const lockId = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
   const start = Date.now();

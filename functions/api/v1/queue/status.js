@@ -1,5 +1,5 @@
 // Queue Status - Get current queue status for a clinic
-// Uses Durable Object for consistent state
+// Returns current serving number, total length, and waiting count
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -28,27 +28,28 @@ export async function onRequest(context) {
       });
     }
     
-    // Get Durable Object instance for this clinic
-    const id = env.QUEUE_DO.idFromName(clinic);
-    const stub = env.QUEUE_DO.get(id);
+    const kv = env.KV_QUEUES;
     
-    // Forward request to Durable Object
-    const doRequest = new Request(`https://do/${clinic}/status`, {
-      method: 'GET'
-    });
+    // Get queue status with cache bypass
+    const statusKey = `queue:status:${clinic}`;
+    const status = await kv.get(statusKey, { type: 'json', cacheTtl: 0 }) || { current: 0, length: 0 };
     
-    const doResponse = await stub.fetch(doRequest);
-    const data = await doResponse.json();
+    // Get counter with cache bypass
+    const counterKey = `queue:counter:${clinic}`;
+    const counter = await kv.get(counterKey, { type: 'text', cacheTtl: 0 });
+    const total = counter ? parseInt(counter) : 0;
     
-    // Return response with clinic info
     return new Response(JSON.stringify({
-      ...data,
-      clinic: clinic
+      success: true,
+      clinic: clinic,
+      current: status.current || 0,
+      length: total,
+      waiting: Math.max(0, total - (status.current || 0))
     }), {
-      status: doResponse.status,
+      status: 200,
       headers: { 
         'Content-Type': 'application/json; charset=utf-8',
-        'Cache-Control': 'no-cache'
+        'Cache-Control': 'no-cache, no-store, must-revalidate'
       }
     });
     

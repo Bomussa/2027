@@ -39,13 +39,6 @@ export async function onRequestPost(context) {
       }, 404);
     }
     
-    // Advance current counter in Durable Object
-    const id = env.QUEUE_DO.idFromName(clinic);
-    const stub = env.QUEUE_DO.get(id);
-    const doRequest = new Request(`https://do/${clinic}/done`, {
-      method: 'POST'
-    });
-    await stub.fetch(doRequest);
     
     // Verify PIN if provided (proof of completion)
     if (pin) {

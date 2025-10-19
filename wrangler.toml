@@ -26,16 +26,6 @@ id = "99b12b0fa33e4d57a8bd1447ab80236f"
 binding = "KV_CACHE"
 id = "1d3d4e6c12174b7797b356234794e7e5"
 
-# Durable Objects
-[durable_objects]
-bindings = [
-  { name = "QUEUE_DO", class_name = "QueueCounter", script_name = "mmc-mms" }
-]
-
-[[migrations]]
-tag = "v2025-10-19-queue-do"
-new_classes = ["QueueCounter"]
-
 [vars]
 TIMEZONE = "Asia/Qatar"
 PIN_SECRET = "6a1f1a07787035f332b188d623a6395dc50de51bf90a62238ed25b5519ca3194"

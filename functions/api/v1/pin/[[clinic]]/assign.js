@@ -15,7 +15,7 @@ const IDEMPOTENCY_TTL = 24 * 60 * 60; // 24 hours
  */
 const acquireLock = async (kvLocks, key, ttl = 3000) => {
   const lockKey = `lock:${key}`;
-  const lockId = crypto.randomUUID();
+  const lockId = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
   const start = Date.now();
   
   while (Date.now() - start < ttl) {

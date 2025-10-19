@@ -14,32 +14,24 @@ export async function onRequestGet(context) {
     });
   }
 
-  // Create SSE stream
-  const { readable, writable } = new TransformStream();
-  const writer = writable.getWriter();
-  const encoder = new TextEncoder();
+  // For Cloudflare Workers, we use polling-based SSE
+  // Get current queue status and send single event
+  try {
+    const queueKey = `queue:${clinic}`;
+    const queueData = await env.KV_QUEUES.get(queueKey, { type: 'json' });
 
-  // Send initial connection message
-  await writer.write(encoder.encode('data: {"type":"CONNECTED","clinic":"' + clinic + '"}\n\n'));
+    let event = {
+      type: 'CONNECTED',
+      clinic: clinic,
+      timestamp: new Date().toISOString()
+    };
 
-  // Start monitoring loop
-  const interval = setInterval(async () => {
-    try {
-      // Get current queue status
-      const queueKey = `queue:${clinic}`;
-      const queueData = await env.KV_QUEUES.get(queueKey, { type: 'json' });
-
-      if (!queueData) {
-        return;
-      }
-
-      // Find user in queue
+    if (queueData) {
       if (user) {
-        const patient = queueData.patients.find(p => p.user === user);
+        const patient = queueData.patients ? queueData.patients.find(p => p.user === user) : null;
 
         if (patient) {
           const diff = queueData.current - patient.number;
-
           let eventType = 'NO_ALERT';
 
           if (patient.status === 'IN_SERVICE') {
@@ -52,7 +44,7 @@ export async function onRequestGet(context) {
             eventType = 'STEP_DONE_NEXT';
           }
 
-          const event = {
+          event = {
             type: eventType,
             clinic: clinic,
             user: user,
@@ -61,41 +53,37 @@ export async function onRequestGet(context) {
             ahead: Math.max(0, patient.number - queueData.current),
             timestamp: new Date().toISOString()
           };
-
-          await writer.write(encoder.encode('data: ' + JSON.stringify(event) + '\n\n'));
         }
       } else {
-        // Broadcast mode - send current status
-        const event = {
+        event = {
           type: 'QUEUE_UPDATE',
           clinic: clinic,
           current: queueData.current,
           length: queueData.length,
-          waiting: queueData.patients.filter(p => p.status === 'WAITING').length,
+          waiting: queueData.patients ? queueData.patients.filter(p => p.status === 'WAITING').length : 0,
           timestamp: new Date().toISOString()
         };
-
-        await writer.write(encoder.encode('data: ' + JSON.stringify(event) + '\n\n'));
       }
-
-    } catch (error) {
-      console.error('SSE error:', error);
     }
-  }, 2000); // Check every 2 seconds
 
-  // Cleanup on connection close
-  request.signal.addEventListener('abort', () => {
-    clearInterval(interval);
-    writer.close();
-  });
+    const sseData = 'data: ' + JSON.stringify(event) + '\n\n';
 
-  return new Response(readable, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-      'Access-Control-Allow-Origin': '*'
-    }
-  });
+    return new Response(sseData, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache',
+        'Connection': 'keep-alive',
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
+
+  } catch (error) {
+    return new Response('data: {"type":"ERROR","message":"' + error.message + '"}\n\n', {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Access-Control-Allow-Origin': '*'
+      }
+    });
+  }
 }
 

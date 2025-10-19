@@ -11,7 +11,7 @@
  * @param {number} ttl - Lock timeout in milliseconds
  * @returns {Promise<boolean>} - True if lock acquired
  */
-const acquireLock = async (kvLocks, key, ttl = 5000) => {
+const acquireLock = async (kvLocks, key, ttl = 10000) => {
   const lockKey = `lock:${key}`;
   const lockId = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
   const start = Date.now();

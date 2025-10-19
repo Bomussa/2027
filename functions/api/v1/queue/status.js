@@ -1,44 +1,51 @@
 // Queue Status - Get current queue status for a clinic
-// Returns current serving number, total length, and waiting count
-
-// Direct KV access
+// Uses Durable Object for consistent state
 
 export async function onRequest(context) {
   const { request, env } = context;
   
-  const url = new URL(request.url);
-  const clinic = url.searchParams.get('clinic');
-  
-  if (!clinic) {
+  if (request.method !== 'GET') {
     return new Response(JSON.stringify({
       success: false,
-      error: 'Missing clinic parameter'
+      error: 'Method not allowed'
     }), {
-      status: 400,
+      status: 405,
       headers: { 'Content-Type': 'application/json; charset=utf-8' }
     });
   }
   
   try {
-    const kv = env.KV_QUEUES;
+    const url = new URL(request.url);
+    const clinic = url.searchParams.get('clinic');
     
-    // Get queue status
-    const statusKey = `queue:status:${clinic}`;
-    const status = await kv.get(statusKey, 'json') || { current: 0, length: 0 };
+    if (!clinic) {
+      return new Response(JSON.stringify({
+        success: false,
+        error: 'Missing clinic parameter'
+      }), {
+        status: 400,
+        headers: { 'Content-Type': 'application/json; charset=utf-8' }
+      });
+    }
     
-    // Get counter
-    const counterKey = `queue:counter:${clinic}`;
-    const counter = await kv.get(counterKey, 'text');
-    const total = counter ? parseInt(counter) : 0;
+    // Get Durable Object instance for this clinic
+    const id = env.QUEUE_DO.idFromName(clinic);
+    const stub = env.QUEUE_DO.get(id);
     
+    // Forward request to Durable Object
+    const doRequest = new Request(`https://do/${clinic}/status`, {
+      method: 'GET'
+    });
+    
+    const doResponse = await stub.fetch(doRequest);
+    const data = await doResponse.json();
+    
+    // Return response with clinic info
     return new Response(JSON.stringify({
-      success: true,
-      clinic: clinic,
-      current: status.current || 0,
-      length: total,
-      waiting: Math.max(0, total - (status.current || 0))
+      ...data,
+      clinic: clinic
     }), {
-      status: 200,
+      status: doResponse.status,
       headers: { 
         'Content-Type': 'application/json; charset=utf-8',
         'Cache-Control': 'no-cache'

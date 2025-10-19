@@ -39,6 +39,14 @@ export async function onRequestPost(context) {
       }, 404);
     }
     
+    // Advance current counter in Durable Object
+    const id = env.QUEUE_DO.idFromName(clinic);
+    const stub = env.QUEUE_DO.get(id);
+    const doRequest = new Request(`https://do/${clinic}/done`, {
+      method: 'POST'
+    });
+    await stub.fetch(doRequest);
+    
     // Verify PIN if provided (proof of completion)
     if (pin) {
       // Get today's PIN for this clinic
@@ -72,6 +80,14 @@ export async function onRequestPost(context) {
       pin: pin || 'NO_PIN',
       completed_at: new Date().toISOString()
     }), {
+      expirationTtl: 86400
+    });
+    
+    // Update queue status in KV for backward compatibility
+    const statusKey = `queue:status:${clinic}`;
+    const status = await kv.get(statusKey, 'json') || { current: 0, length: 0 };
+    status.current = (status.current || 0) + 1;
+    await kv.put(statusKey, JSON.stringify(status), {
       expirationTtl: 86400
     });
     

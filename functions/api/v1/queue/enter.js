@@ -1,50 +1,6 @@
 // Queue Enter - Assign queue number to patient
+// Uses Durable Object for atomic counter increment
 // Each clinic has independent queue starting from 1
-// Queue numbers are separate from PIN system
-
-// Direct KV access
-
-// Atomic lock helpers
-function generateLockId() {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
-}
-
-async function acquireLock(kv, lockKey, lockId, timeout = 20000) {
-  const startTime = Date.now();
-  
-  while (Date.now() - startTime < timeout) {
-    try {
-      await kv.put(lockKey, lockId, {
-        expirationTtl: 60,
-        metadata: { acquired: Date.now(), id: lockId }
-      });
-      
-      await new Promise(resolve => setTimeout(resolve, 50));
-      
-      const currentLock = await kv.get(lockKey, { type: 'text' });
-      if (currentLock === lockId) {
-        return true;
-      }
-    } catch (e) {
-      // Continue trying
-    }
-    
-    await new Promise(resolve => setTimeout(resolve, 50));
-  }
-  
-  return false;
-}
-
-async function releaseLock(kv, lockKey, lockId) {
-  try {
-    const currentLock = await kv.get(lockKey, { type: 'text' });
-    if (currentLock === lockId) {
-      await kv.delete(lockKey);
-    }
-  } catch (e) {
-    // Ignore errors
-  }
-}
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -73,67 +29,28 @@ export async function onRequest(context) {
       });
     }
     
-    const kv = env.KV_QUEUES;
-    const lockKey = `lock:queue:${clinic}`;
-    const lockId = generateLockId();
+    // Get Durable Object instance for this clinic
+    const id = env.QUEUE_DO.idFromName(clinic);
+    const stub = env.QUEUE_DO.get(id);
     
-    // Acquire lock
-    const acquired = await acquireLock(kv, lockKey, lockId);
-    if (!acquired) {
-      return new Response(JSON.stringify({
-        success: false,
-        error: 'LOCK_TIMEOUT'
-      }), {
-        status: 408,
-        headers: { 'Content-Type': 'application/json; charset=utf-8' }
-      });
-    }
+    // Forward request to Durable Object
+    const doRequest = new Request(`https://do/${clinic}/enter`, {
+      method: 'POST',
+      body: JSON.stringify({ clinic, user }),
+      headers: { 'Content-Type': 'application/json' }
+    });
     
-    try {
-      // Get current counter
-      const counterKey = `queue:counter:${clinic}`;
-      const currentCounter = await kv.get(counterKey, 'text');
-      const nextNumber = currentCounter ? parseInt(currentCounter) + 1 : 1;
-      
-      // Update counter
-      await kv.put(counterKey, String(nextNumber), {
-        expirationTtl: 86400 // 24 hours
-      });
-      
-      // Store user's queue number
-      const userKey = `queue:user:${clinic}:${user}`;
-      await kv.put(userKey, JSON.stringify({
-        number: nextNumber,
-        status: 'WAITING',
-        entered_at: new Date().toISOString()
-      }), {
-        expirationTtl: 86400
-      });
-      
-      // Get queue status
-      const statusKey = `queue:status:${clinic}`;
-      const status = await kv.get(statusKey, 'json') || { current: 0, length: 0 };
-      status.length = nextNumber;
-      
-      await kv.put(statusKey, JSON.stringify(status), {
-        expirationTtl: 86400
-      });
-      
-      return new Response(JSON.stringify({
-        success: true,
-        clinic: clinic,
-        user: user,
-        number: nextNumber,
-        status: 'WAITING',
-        ahead: Math.max(0, nextNumber - (status.current || 0) - 1)
-      }), {
-        status: 200,
-        headers: { 'Content-Type': 'application/json; charset=utf-8' }
-      });
-      
-    } finally {
-      await releaseLock(kv, lockKey, lockId);
-    }
+    const doResponse = await stub.fetch(doRequest);
+    const data = await doResponse.json();
+    
+    // Return response with clinic info
+    return new Response(JSON.stringify({
+      ...data,
+      clinic: clinic
+    }), {
+      status: doResponse.status,
+      headers: { 'Content-Type': 'application/json; charset=utf-8' }
+    });
     
   } catch (error) {
     return new Response(JSON.stringify({

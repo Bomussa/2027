@@ -1,4 +1,4 @@
-// SSE Events Stream - Real-time notifications
+// SSE Events Stream - Real-time notifications with Heartbeat
 // GET /api/v1/events/stream?clinic=<clinic>&user=<user>
 
 export async function onRequestGet(context) {
@@ -10,80 +10,117 @@ export async function onRequestGet(context) {
   if (!clinic) {
     return new Response(JSON.stringify({ error: 'clinic required' }), {
       status: 400,
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json; charset=utf-8' }
     });
   }
 
-  // For Cloudflare Workers, we use polling-based SSE
-  // Get current queue status and send single event
-  try {
-    const queueKey = `queue:${clinic}`;
-    const queueData = await env.KV_QUEUES.get(queueKey, { type: 'json' });
+  // Create a TransformStream for SSE
+  const { readable, writable } = new TransformStream();
+  const writer = writable.getWriter();
+  const encoder = new TextEncoder();
 
-    let event = {
-      type: 'CONNECTED',
-      clinic: clinic,
-      timestamp: new Date().toISOString()
-    };
+  // Helper function to send SSE message
+  const sendEvent = async (data) => {
+    try {
+      await writer.write(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+    } catch (e) {
+      // Connection closed
+    }
+  };
 
-    if (queueData) {
+  // Send initial connection message
+  await sendEvent({
+    type: 'CONNECTED',
+    clinic: clinic,
+    user: user || null,
+    timestamp: new Date().toISOString()
+  });
+
+  // Heartbeat mechanism - send ping every 15 seconds
+  const heartbeatInterval = setInterval(async () => {
+    try {
+      await writer.write(encoder.encode(`: heartbeat\n\n`));
+    } catch (e) {
+      clearInterval(heartbeatInterval);
+      clearInterval(updateInterval);
+    }
+  }, 15000);
+
+  // Update mechanism - check queue status every 5 seconds
+  const updateInterval = setInterval(async () => {
+    try {
+      // Get queue status from Durable Object
+      const id = env.QUEUE_DO.idFromName(clinic);
+      const stub = env.QUEUE_DO.get(id);
+      const doRequest = new Request(`https://do/${clinic}/status`, {
+        method: 'GET'
+      });
+      const doResponse = await stub.fetch(doRequest);
+      const queueStatus = await doResponse.json();
+
       if (user) {
-        const patient = queueData.patients ? queueData.patients.find(p => p.user === user) : null;
+        // Get user-specific queue info
+        const userKey = `queue:user:${clinic}:${user}`;
+        const userQueue = await env.KV_QUEUES.get(userKey, 'json');
 
-        if (patient) {
-          const diff = queueData.current - patient.number;
+        if (userQueue) {
+          const current = queueStatus.current || 0;
+          const userNumber = userQueue.number;
+          const diff = userNumber - current;
+
           let eventType = 'NO_ALERT';
-
-          if (patient.status === 'IN_SERVICE') {
-            eventType = 'YOUR_TURN';
-          } else if (diff <= 2 && diff >= 0) {
-            eventType = 'NEAR_TURN';
+          
+          if (userQueue.status === 'DONE') {
+            eventType = 'STEP_DONE_NEXT';
           } else if (diff === 0) {
             eventType = 'YOUR_TURN';
-          } else if (patient.status === 'DONE') {
-            eventType = 'STEP_DONE_NEXT';
+          } else if (diff > 0 && diff <= 2) {
+            eventType = 'NEAR_TURN';
           }
 
-          event = {
+          await sendEvent({
             type: eventType,
             clinic: clinic,
             user: user,
-            number: patient.number,
-            current: queueData.current,
-            ahead: Math.max(0, patient.number - queueData.current),
+            number: userNumber,
+            current: current,
+            ahead: Math.max(0, diff),
+            status: userQueue.status,
             timestamp: new Date().toISOString()
-          };
+          });
         }
       } else {
-        event = {
+        // Send general queue update
+        await sendEvent({
           type: 'QUEUE_UPDATE',
           clinic: clinic,
-          current: queueData.current,
-          length: queueData.length,
-          waiting: queueData.patients ? queueData.patients.filter(p => p.status === 'WAITING').length : 0,
+          current: queueStatus.current || 0,
+          length: queueStatus.length || 0,
+          waiting: queueStatus.waiting || 0,
           timestamp: new Date().toISOString()
-        };
+        });
       }
+    } catch (e) {
+      // Error getting update, continue
+      console.error('SSE update error:', e);
     }
+  }, 5000);
 
-    const sseData = 'data: ' + JSON.stringify(event) + '\n\n';
+  // Cleanup after 5 minutes
+  setTimeout(() => {
+    clearInterval(heartbeatInterval);
+    clearInterval(updateInterval);
+    writer.close().catch(() => {});
+  }, 300000);
 
-    return new Response(sseData, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache',
-        'Connection': 'keep-alive',
-        'Access-Control-Allow-Origin': '*'
-      }
-    });
-
-  } catch (error) {
-    return new Response('data: {"type":"ERROR","message":"' + error.message + '"}\n\n', {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Access-Control-Allow-Origin': '*'
-      }
-    });
-  }
+  return new Response(readable, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      'Connection': 'keep-alive',
+      'Access-Control-Allow-Origin': '*',
+      'X-Accel-Buffering': 'no'
+    }
+  });
 }
 

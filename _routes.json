@@ -1,0 +1,16 @@
+{
+  "version": 1,
+  "include": [
+    "/api/*"
+  ],
+  "exclude": [
+    "/_headers",
+    "/_redirects",
+    "/static/*",
+    "/assets/*",
+    "/images/*",
+    "/css/*",
+    "/js/*"
+  ]
+}
+

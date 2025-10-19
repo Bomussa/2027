@@ -32,7 +32,13 @@ export async function onRequest(context) {
     
     // Get queue status
     const statusKey = `queue:status:${clinic}`;
-    const status = await kv.get(statusKey, { type: 'json' }) || { current: null, served: [] };
+    const statusData = await kv.get(statusKey, { type: 'json' });
+    const status = statusData || { current: null, served: [] };
+    
+    // Ensure served array exists
+    if (!status.served) {
+      status.served = [];
+    }
     
     // Get queue list
     const listKey = `queue:list:${clinic}`;

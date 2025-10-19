@@ -288,21 +288,13 @@ class ApiService {
   }
 
   async getQueues() {
-    // جمع حالة جميع العيادات
-    const clinics = ['lab', 'xray', 'eyes', 'internal', 'ent', 'surgery', 
-                     'dental', 'psychiatry', 'derma', 'bones', 'vitals', 
-                     'ecg', 'audio', 'women_internal', 'women_derma', 'women_eyes']
-    
-    const promises = clinics.map(clinic => 
-      this.getQueueStatus(clinic).catch(() => ({ clinic, list: [] }))
-    )
-    
-    const results = await Promise.all(promises)
-    return { queues: results }
+    // استخدام API الجديد للحصول على جميع الطوابير
+    return this.request(`${API_VERSION}/stats/queues`)
   }
 
   async getQueueStats() {
-    return this.getAdminStatus()
+    // استخدام API الجديد للإحصائيات
+    return this.request(`${API_VERSION}/stats/dashboard`)
   }
 
   async adminLogin(code) {

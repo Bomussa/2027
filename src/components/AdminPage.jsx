@@ -228,7 +228,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-400 text-sm">إجمالي المنتظرين</p>
-                <p className="text-3xl font-bold text-white">{stats?.totalPatients || 0}</p>
+                <p className="text-3xl font-bold text-white">{stats?.stats?.totalWaiting || 0}</p>
               </div>
               <Users className="icon icon-xl text-blue-400" />
             </div>
@@ -240,7 +240,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-400 text-sm">الطوابير النشطة</p>
-                <p className="text-3xl font-bold text-white">{stats?.totalWaiting || 0}</p>
+                <p className="text-3xl font-bold text-white">{stats?.stats?.activeQueues || 0}</p>
               </div>
               <Activity className="icon icon-xl text-green-400" />
             </div>
@@ -252,7 +252,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-400 text-sm">الفحوص المكتملة</p>
-                <p className="text-3xl font-bold text-white">{stats?.totalCompleted || 0}</p>
+                <p className="text-3xl font-bold text-white">{stats?.stats?.completedToday || 0}</p>
               </div>
               <CheckCircle className="icon icon-xl text-purple-400" />
             </div>
@@ -264,7 +264,7 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-gray-400 text-sm">متوسط الانتظار (دقيقة)</p>
-                <p className="text-3xl font-bold text-white">{stats?.avgWaitTime || 0}</p>
+                <p className="text-3xl font-bold text-white">{stats?.stats?.avgWaitTime || 0}</p>
               </div>
               <Clock className="icon icon-xl text-yellow-400" />
             </div>

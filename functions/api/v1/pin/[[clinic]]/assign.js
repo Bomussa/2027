@@ -15,17 +15,30 @@ const IDEMPOTENCY_TTL = 24 * 60 * 60; // 24 hours
  */
 const acquireLock = async (kvLocks, key, ttl = 3000) => {
   const lockKey = `lock:${key}`;
+  const lockId = crypto.randomUUID();
   const start = Date.now();
+  
   while (Date.now() - start < ttl) {
-    try {
-      await kvLocks.put(lockKey, "1", { expirationTtl: 60 });
-      const existing = await kvLocks.get(lockKey);
-      if (existing) return true; // Lock acquired
-    } catch (e) {
-      // Lock exists, retry
+    // Try to acquire lock
+    const existing = await kvLocks.get(lockKey);
+    
+    if (!existing) {
+      // No lock exists, try to set it
+      await kvLocks.put(lockKey, lockId, { expirationTtl: 60 });
+      
+      // Verify we got the lock (double-check)
+      await new Promise(r => setTimeout(r, 50));
+      const verify = await kvLocks.get(lockKey);
+      
+      if (verify === lockId) {
+        return lockId; // Lock acquired successfully
+      }
     }
+    
+    // Lock exists or we didn't get it, wait and retry
     await new Promise(r => setTimeout(r, 100));
   }
+  
   throw new Error("LOCK_TIMEOUT");
 };
 
@@ -34,9 +47,14 @@ const acquireLock = async (kvLocks, key, ttl = 3000) => {
  * @param {KVNamespace} kvLocks - KV namespace for locks
  * @param {string} key - Lock key
  */
-const releaseLock = async (kvLocks, key) => {
+const releaseLock = async (kvLocks, key, lockId) => {
   const lockKey = `lock:${key}`;
-  await kvLocks.delete(lockKey);
+  
+  // Only delete if we own the lock
+  const existing = await kvLocks.get(lockKey);
+  if (existing === lockId) {
+    await kvLocks.delete(lockKey);
+  }
 };
 
 export async function onRequestPost(context) {
@@ -69,7 +87,7 @@ export async function onRequestPost(context) {
 
     // Acquire lock for atomic operation
     const lockKey = `${clinic}:${dateKey}`;
-    await acquireLock(env.KV_LOCKS || env.KV_CACHE, lockKey);
+    const lockId = await acquireLock(env.KV_LOCKS || env.KV_CACHE, lockKey);
 
     try {
       // Get today's PINs state
@@ -145,7 +163,7 @@ export async function onRequestPost(context) {
       return jsonResponse(response, 200);
     } finally {
       // Release lock
-      await releaseLock(env.KV_LOCKS || env.KV_CACHE, lockKey);
+      await releaseLock(env.KV_LOCKS || env.KV_CACHE, lockKey, lockId);
     }
 
   } catch (error) {

@@ -52,12 +52,21 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
   const loadQueues = async () => {
     try {
       const data = await api.getQueues()
-      if (data && Array.isArray(data)) {
-        setQueues(data)
+      if (data && data.queues && Array.isArray(data.queues)) {
+        // تصفية الطوابير النشطة فقط
+        const activeQueues = data.queues.filter(q => q.active && q.total > 0)
+        setQueues(activeQueues.map(q => ({
+          id: q.clinic,
+          name: q.name,
+          nameAr: q.name,
+          current: q.current_display,
+          waiting: q.waiting,
+          total: q.total,
+          avgTime: 0
+        })))
       }
     } catch (error) {
       console.error('Failed to load queues:', error)
-      // Use fallback empty array
       setQueues([])
     }
   }

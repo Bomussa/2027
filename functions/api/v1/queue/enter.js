@@ -4,7 +4,10 @@
 
 // Generate unique lock ID
 function generateLockId() {
-  return `${Date.now()}-${Math.random().toString(36).substr(2, 12)}-${process.hrtime ? process.hrtime.bigint().toString() : Date.now()}`;
+  const timestamp = Date.now();
+  const random1 = Math.random().toString(36).substr(2, 12);
+  const random2 = Math.random().toString(36).substr(2, 9);
+  return `${timestamp}-${random1}-${random2}`;
 }
 
 // Enhanced atomic lock with cache bypass and exponential backoff

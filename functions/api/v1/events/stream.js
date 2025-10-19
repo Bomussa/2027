@@ -1,52 +1,37 @@
-// SSE Events Stream - Real-time notifications
-// GET /api/v1/events/stream?clinic=<clinic>&user=<user>
+export default {
+  async fetch(request, env, ctx) {
+    const { readable, writable } = new TransformStream();
+    const writer = writable.getWriter();
+    const encoder = new TextEncoder();
 
-export async function onRequestGet(context) {
-  const { request, env } = context;
-  
-  const { readable, writable } = new TransformStream();
-  const writer = writable.getWriter();
-  const encoder = new TextEncoder();
-
-  // Send initial connection event asynchronously
-  (async () => {
-    try {
-      await writer.write(encoder.encode("event: connected\n"));
-      await writer.write(encoder.encode('data: {"status":"ok"}\n\n'));
-      
-      // Keep connection alive with heartbeat
-      const interval = setInterval(async () => {
-        try {
-          await writer.write(encoder.encode(": heartbeat\n\n"));
-        } catch (e) {
-          clearInterval(interval);
-        }
-      }, 15000);
-      
-      // Cleanup after 5 minutes
-      setTimeout(() => {
-        clearInterval(interval);
-        writer.close().catch(() => {});
-      }, 300000);
-      
-    } catch (e) {
-      writer.close().catch(() => {});
+    // Asynchronous sending function without await
+    function sendEvent(name, data) {
+      const payload =
+        `event: ${name}\n` +
+        `data: ${JSON.stringify(data)}\n\n`;
+      writer.ready.then(() => writer.write(encoder.encode(payload)));
     }
-  })();
 
-  // Handle client disconnect
-  request.signal.addEventListener("abort", () => {
-    writer.close().catch(() => {});
-  });
+    // Initial connection confirmation
+    sendEvent("connected", { status: "ok" });
 
-  return new Response(readable, {
-    headers: {
-      "Content-Type": "text/event-stream; charset=utf-8",
-      "Cache-Control": "no-cache, no-transform",
-      "Connection": "keep-alive",
-      "Access-Control-Allow-Origin": "*",
-      "X-Accel-Buffering": "no"
-    },
-  });
-}
+    // Send pings every 5 seconds to confirm continuity
+    const interval = setInterval(() => {
+      sendEvent("ping", { ts: Date.now() });
+    }, 5000);
 
+    // Close the connection when the request is aborted
+    request.signal.addEventListener("abort", () => {
+      clearInterval(interval);
+      writer.close();
+    });
+
+    return new Response(readable, {
+      headers: {
+        "Content-Type": "text/event-stream; charset=utf-8",
+        "Cache-Control": "no-cache",
+        "Connection": "keep-alive",
+      },
+    });
+  },
+};

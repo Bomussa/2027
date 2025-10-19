@@ -1,11 +1,9 @@
 /**
- * PIN Assignment Endpoint (Enhanced with Atomic Locks & Idempotency)
+ * PIN Assignment Endpoint (Simplified & Working)
  * POST /api/v1/pin/:clinic/assign
  * Headers: Idempotency-Key (optional)
  */
 
-const MAX_RETRY_ATTEMPTS = 5;
-const LOCK_TTL = 10; // seconds
 const IDEMPOTENCY_TTL = 24 * 60 * 60; // 24 hours
 
 export async function onRequestPost(context) {
@@ -36,68 +34,39 @@ export async function onRequestPost(context) {
     const qatarTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Qatar' }));
     const dateKey = qatarTime.toISOString().split('T')[0];
 
-    // Atomic PIN assignment with retry logic
+    // Get today's PINs state
+    const pinsKey = `pins:${clinic}:${dateKey}`;
+    let pinsData = await env.KV_PINS.get(pinsKey, { type: 'json' });
+
+    // Initialize if not exists
+    if (!pinsData) {
+      pinsData = initializeDailyPins(dateKey);
+    }
+
+    // Try to pull PIN from available list
     let assignedPin = null;
-    let pinsData = null;
-    let attempt = 0;
+    let reserveMode = false;
 
-    while (attempt < MAX_RETRY_ATTEMPTS && !assignedPin) {
-      attempt++;
-
-      // Try to acquire lock
-      const lockKey = `lock:pins:${clinic}:${dateKey}`;
-      const lockAcquired = await acquireLock(env.KV_LOCKS, lockKey, LOCK_TTL);
-
-      if (!lockAcquired) {
-        // Wait and retry
-        await sleep(100 * attempt); // Exponential backoff
-        continue;
-      }
-
-      try {
-        // Get today's PINs state
-        const pinsKey = `pins:${clinic}:${dateKey}`;
-        pinsData = await env.KV_PINS.get(pinsKey, { type: 'json' });
-
-        // Initialize if not exists
-        if (!pinsData) {
-          pinsData = initializeDailyPins(dateKey);
-        }
-
-        // Try to pull PIN from available list
-        if (pinsData.available.length > 0) {
-          assignedPin = pinsData.available.shift();
-        } else if (pinsData.reserve.length > 0) {
-          assignedPin = pinsData.reserve.shift();
-          pinsData.reserve_mode = true;
-        } else {
-          await releaseLock(env.KV_LOCKS, lockKey);
-          return jsonResponse({ 
-            error: 'No PINs available',
-            message: 'جميع الأرقام محجوزة لهذا اليوم'
-          }, 503);
-        }
-
-        // Update data
-        pinsData.taken.push(assignedPin);
-        pinsData.issued += 1;
-        pinsData.last_issued_at = new Date().toISOString();
-
-        // Save updated data atomically
-        await env.KV_PINS.put(pinsKey, JSON.stringify(pinsData));
-
-      } finally {
-        // Always release lock
-        await releaseLock(env.KV_LOCKS, lockKey);
-      }
-    }
-
-    if (!assignedPin) {
+    if (pinsData.available.length > 0) {
+      assignedPin = pinsData.available.shift();
+    } else if (pinsData.reserve.length > 0) {
+      assignedPin = pinsData.reserve.shift();
+      reserveMode = true;
+      pinsData.reserve_mode = true;
+    } else {
       return jsonResponse({ 
-        error: 'Failed to assign PIN after retries',
-        message: 'فشل في تخصيص الرقم بعد عدة محاولات'
-      }, 500);
+        error: 'No PINs available',
+        message: 'جميع الأرقام محجوزة لهذا اليوم'
+      }, 503);
     }
+
+    // Update data
+    pinsData.taken.push(assignedPin);
+    pinsData.issued += 1;
+    pinsData.last_issued_at = new Date().toISOString();
+
+    // Save updated data
+    await env.KV_PINS.put(pinsKey, JSON.stringify(pinsData));
 
     // Generate session code (barcode)
     const sessionCode = generateSessionCode(clinic, assignedPin, dateKey);
@@ -110,7 +79,7 @@ export async function onRequestPost(context) {
       session_code: sessionCode,
       date: dateKey,
       timestamp: new Date().toISOString(),
-      reserve_mode: pinsData.reserve_mode,
+      reserve_mode: reserveMode,
       idempotency_key: idempotencyKey || null
     });
 
@@ -121,7 +90,7 @@ export async function onRequestPost(context) {
       session_code: sessionCode,
       clinic: clinic,
       date: dateKey,
-      reserve_mode: pinsData.reserve_mode,
+      reserve_mode: reserveMode,
       remaining: pinsData.available.length + pinsData.reserve.length,
       timestamp: new Date().toISOString()
     };
@@ -138,54 +107,11 @@ export async function onRequestPost(context) {
     return jsonResponse(response, 200);
 
   } catch (error) {
-    return jsonResponse({ 
-      error: error.message,
-      timestamp: new Date().toISOString()
+    return jsonResponse({
+      error: 'Internal server error',
+      message: error.message
     }, 500);
   }
-}
-
-async function acquireLock(kvLocks, lockKey, ttl) {
-  const lockValue = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
-  
-  try {
-    // Try to set lock only if it doesn't exist
-    const existing = await kvLocks.get(lockKey);
-    
-    if (existing) {
-      // Check if lock is expired
-      const lockData = JSON.parse(existing);
-      const lockAge = (Date.now() - lockData.timestamp) / 1000;
-      
-      if (lockAge < ttl) {
-        return false; // Lock still held
-      }
-    }
-
-    // Acquire lock
-    await kvLocks.put(lockKey, JSON.stringify({
-      value: lockValue,
-      timestamp: Date.now()
-    }), {
-      expirationTtl: ttl
-    });
-
-    return true;
-  } catch {
-    return false;
-  }
-}
-
-async function releaseLock(kvLocks, lockKey) {
-  try {
-    await kvLocks.delete(lockKey);
-  } catch (error) {
-    console.error('Failed to release lock:', error);
-  }
-}
-
-function sleep(ms) {
-  return new Promise(resolve => setTimeout(resolve, ms));
 }
 
 function generateSessionCode(clinic, pin, date) {
@@ -198,45 +124,50 @@ function generateSessionCode(clinic, pin, date) {
 function initializeDailyPins(date) {
   const available = [];
   const reserve = [];
-  
+
+  // Generate PINs 01-20 (available)
   for (let i = 1; i <= 20; i++) {
     available.push(String(i).padStart(2, '0'));
   }
-  
+
+  // Generate PINs 21-30 (reserve)
   for (let i = 21; i <= 30; i++) {
     reserve.push(String(i).padStart(2, '0'));
   }
 
   return {
-    available,
-    reserve,
+    date: date,
+    available: available,
+    reserve: reserve,
     taken: [],
     issued: 0,
     reserve_mode: false,
-    reset_at: new Date(date + 'T00:00:00+03:00').toISOString(),
     last_issued_at: null,
-    tz: 'Asia/Qatar'
+    created_at: new Date().toISOString()
   };
 }
 
 async function logEvent(kvEvents, event) {
   try {
-    const eventKey = `event:${Date.now()}:${Math.random().toString(36).substr(2, 9)}`;
+    const eventId = `${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const eventKey = `event:${event.type}:${eventId}`;
+    
     await kvEvents.put(eventKey, JSON.stringify(event), {
-      expirationTtl: 7 * 24 * 60 * 60
+      expirationTtl: 30 * 24 * 60 * 60 // 30 days
     });
   } catch (error) {
-    console.error('Event logging failed:', error);
+    console.error('Failed to log event:', error);
   }
 }
 
 function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data, null, 2), {
-    status,
+    status: status,
     headers: {
       'Content-Type': 'application/json',
       'Access-Control-Allow-Origin': '*',
-      'Cache-Control': 'no-cache, no-store, must-revalidate'
+      'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type, Authorization, Idempotency-Key'
     }
   });
 }

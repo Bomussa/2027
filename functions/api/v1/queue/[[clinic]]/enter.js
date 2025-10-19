@@ -11,7 +11,7 @@
  * @param {number} ttl - Lock timeout in milliseconds
  * @returns {Promise<boolean>} - True if lock acquired
  */
-const acquireLock = async (kvLocks, key, ttl = 3000) => {
+const acquireLock = async (kvLocks, key, ttl = 5000) => {
   const lockKey = `lock:${key}`;
   const lockId = `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`;
   const start = Date.now();
@@ -25,7 +25,7 @@ const acquireLock = async (kvLocks, key, ttl = 3000) => {
       await kvLocks.put(lockKey, lockId, { expirationTtl: 60 });
       
       // Verify we got the lock (double-check)
-      await new Promise(r => setTimeout(r, 50));
+      await new Promise(r => setTimeout(r, 30));
       const verify = await kvLocks.get(lockKey);
       
       if (verify === lockId) {
@@ -34,7 +34,7 @@ const acquireLock = async (kvLocks, key, ttl = 3000) => {
     }
     
     // Lock exists or we didn't get it, wait and retry
-    await new Promise(r => setTimeout(r, 100));
+    await new Promise(r => setTimeout(r, 50));
   }
   
   throw new Error("LOCK_TIMEOUT");

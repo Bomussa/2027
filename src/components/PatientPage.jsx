@@ -68,17 +68,10 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
   const handleClinicEnter = async (station) => {
     try {
       setLoading(true)
-      // Use the correct API endpoint for entering queue
-      const res = await api.request('/api/queue/enter', {
-        method: 'POST',
-        body: JSON.stringify({
-          visitId: patientData.id,
-          clinicId: station.id,
-          queueType: patientData.queueType
-        })
-      })
-      // The backend returns { clinicId, ticket, verified }
-      const ticket = res?.ticket || res?.queueNumber
+      // Use the correct API endpoint: POST /api/v1/queue/enter
+      const res = await api.enterQueue(station.id, patientData.id)
+      // Backend returns: { success, clinic, user, number, status, ahead, display_number }
+      const ticket = res?.display_number || res?.number
       if (ticket) {
         setActiveTicket({ clinicId: station.id, ticket })
         setStations(prev => prev.map(s => s.id === station.id ? {
@@ -116,15 +109,8 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
         }
       }
 
-      // Use the correct API endpoint for completing queue
-      await api.request('/api/queue/complete', {
-        method: 'POST',
-        body: JSON.stringify({
-          clinicId: station.id,
-          ticket: Number(ticket),
-          queueType: patientData.queueType
-        })
-      })
+      // Use the correct API endpoint: POST /api/v1/queue/done
+      await api.queueDone(station.id, patientData.id, ticket)
 
       // Mark station completed and move to next
       setStations(prev => {

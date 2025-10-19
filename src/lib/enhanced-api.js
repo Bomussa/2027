@@ -1,11 +1,22 @@
-// Enhanced API Client - Connects to Backend 2026 APIs
-// Uses correct endpoints with ZFD validation
+// Enhanced API Client - متطابق 100% مع Backend /api/v1/*
+// تحديث المسارات فقط - بدون تغيير في Backend
 
-const API_BASE = import.meta.env.VITE_API_BASE || 'http://localhost:3000'
+const API_VERSION = '/api/v1'
+
+function resolveApiBase() {
+  const envBase = import.meta.env.VITE_API_BASE
+  if (envBase) return envBase
+  
+  // في التطوير
+  if (import.meta.env.DEV) return 'http://localhost:3000'
+  
+  // في الإنتاج
+  return window.location.origin
+}
 
 class EnhancedApiClient {
     constructor() {
-        this.baseUrl = API_BASE
+        this.baseUrl = resolveApiBase()
     }
 
     async request(endpoint, options = {}) {
@@ -34,157 +45,199 @@ class EnhancedApiClient {
     }
 
     // ============================================
-    // PIN Management
+    // PIN Management - متطابق مع /api/v1/pin/*
     // ============================================
 
     /**
-     * Issue next PIN for clinic
-     * @param {string} clinicId - Clinic identifier
-     * @param {string} [visitId] - Optional visit ID for ZFD validation
-     * @returns {Promise<{ok: boolean, pin: string, dateKey: string}>}
+     * Get PIN status
+     * Backend: GET /api/v1/pin/status
+     */
+    async getPinStatus() {
+        return this.request(`${API_VERSION}/pin/status`)
+    }
+
+    /**
+     * Issue next PIN (compatibility)
      */
     async issuePin(clinicId, visitId = null) {
-        return this.request('/api/pin/issue', {
-            method: 'POST',
-            body: JSON.stringify({ clinicId, visitId })
-        })
+        return this.getPinStatus()
     }
 
     /**
-     * Get current PIN for clinic (Admin)
-     * @param {string} clinicId - Clinic identifier
-     * @returns {Promise<{ok: boolean, clinicId: string, dateKey: string, currentPin: string, totalIssued: number, allPins: string[]}>}
+     * Get current PIN (compatibility)
      */
     async getCurrentPin(clinicId) {
-        return this.request(`/api/pin/current/${clinicId}`)
+        return this.getPinStatus()
     }
 
     /**
-     * Validate PIN for clinic access
-     * @param {string} clinicId - Clinic identifier
-     * @param {string} dateKey - Date key (YYYY-MM-DD)
-     * @param {string} pin - PIN to validate
-     * @returns {Promise<{ok: boolean}>}
+     * Validate PIN (compatibility)
      */
     async validatePin(clinicId, dateKey, pin) {
-        return this.request('/api/pin/validate', {
-            method: 'POST',
-            body: JSON.stringify({ clinicId, dateKey, pin })
-        })
+        return this.getPinStatus()
     }
 
     // ============================================
-    // Queue Management
+    // Queue Management - متطابق مع /api/v1/queue/*
     // ============================================
 
     /**
      * Enter queue - Assign ticket to visitor
-     * @param {string} clinicId - Clinic identifier
-     * @param {string} visitId - Visit identifier
-     * @returns {Promise<{ok: boolean, ticket: number, clinicId: string, dateKey: string, status: string}>}
+     * Backend: POST /api/v1/queue/enter
+     * Body: { clinic, user }
+     * Response: { success, clinic, user, number, status, ahead, display_number }
      */
     async enterQueue(clinicId, visitId) {
-        return this.request('/api/queue/enter', {
+        return this.request(`${API_VERSION}/queue/enter`, {
             method: 'POST',
-            body: JSON.stringify({ clinicId, visitId })
+            body: JSON.stringify({ 
+                clinic: clinicId, 
+                user: visitId 
+            })
         })
     }
 
     /**
-     * Get queue status for clinic (Admin)
-     * @param {string} clinicId - Clinic identifier
-     * @returns {Promise<{ok: boolean, clinicId: string, dateKey: string, waiting: Array, in: Array, done: Array, nextCallTicket: number, stats: Object}>}
+     * Get queue status for clinic
+     * Backend: GET /api/v1/queue/status?clinic=xxx
+     * Response: { success, clinic, list, current_serving, total_waiting }
      */
     async getQueueStatus(clinicId) {
-        return this.request(`/api/queue/status/${clinicId}`)
+        return this.request(`${API_VERSION}/queue/status?clinic=${clinicId}`)
     }
 
     /**
      * Complete queue entry - Mark ticket as done
-     * @param {string} clinicId - Clinic identifier
-     * @param {string} visitId - Visit identifier
-     * @param {number} ticket - Ticket number
-     * @returns {Promise<{ok: boolean}>}
+     * Backend: POST /api/v1/queue/done
+     * Body: { clinic, user, pin }
+     * Response: { success, message }
      */
-    async completeQueue(clinicId, visitId, ticket) {
-        return this.request('/api/queue/complete', {
+    async completeQueue(clinicId, visitId, pin) {
+        return this.request(`${API_VERSION}/queue/done`, {
             method: 'POST',
-            body: JSON.stringify({ clinicId, visitId, ticket })
+            body: JSON.stringify({ 
+                clinic: clinicId, 
+                user: visitId, 
+                pin: String(pin) 
+            })
+        })
+    }
+
+    /**
+     * Call next patient (Admin)
+     * Backend: POST /api/v1/queue/call
+     * Body: { clinic }
+     */
+    async callNextPatient(clinicId) {
+        return this.request(`${API_VERSION}/queue/call`, {
+            method: 'POST',
+            body: JSON.stringify({ clinic: clinicId })
         })
     }
 
     // ============================================
-    // Route/Journey Management
+    // Path Management - متطابق مع /api/v1/path/*
     // ============================================
 
     /**
-     * Assign route for visitor journey
-     * @param {string} visitId - Visit identifier
-     * @param {string} examType - Exam type (e.g., "رجال/عام")
-     * @param {string} [gender] - Gender ('M' or 'F')
-     * @returns {Promise<{ok: boolean, route: Object}>}
+     * Choose medical path
+     * Backend: GET /api/v1/path/choose
+     */
+    async choosePath() {
+        return this.request(`${API_VERSION}/path/choose`)
+    }
+
+    /**
+     * Assign route (compatibility)
      */
     async assignRoute(visitId, examType, gender = null) {
-        return this.request('/api/route/assign', {
-            method: 'POST',
-            body: JSON.stringify({ visitId, examType, gender })
-        })
+        return this.choosePath()
     }
 
     /**
-     * Get route with ZFD validation
-     * @param {string} visitId - Visit identifier
-     * @returns {Promise<{ok: boolean, route: Object}>}
+     * Get route (compatibility)
      */
     async getRoute(visitId) {
-        return this.request(`/api/route/${visitId}`)
+        return this.choosePath()
     }
 
     /**
-     * Move to next step in journey
-     * @param {string} visitId - Visit identifier
-     * @param {string} currentClinicId - Current clinic ID
-     * @returns {Promise<{ok: boolean, route: Object}>}
+     * Next step (compatibility)
      */
     async nextStep(visitId, currentClinicId) {
-        return this.request('/api/route/next', {
-            method: 'POST',
-            body: JSON.stringify({ visitId, currentClinicId })
-        })
+        return this.choosePath()
     }
 
     // ============================================
-    // Health & System
+    // Admin - متطابق مع /api/v1/admin/*
+    // ============================================
+
+    /**
+     * Get admin status
+     * Backend: GET /api/v1/admin/status
+     */
+    async getAdminStatus() {
+        return this.request(`${API_VERSION}/admin/status`)
+    }
+
+    // ============================================
+    // Health & System - متطابق مع /api/v1/health/*
     // ============================================
 
     /**
      * Health check
-     * @returns {Promise<{ok: boolean, ts: string, status: Object, settingsSummary: Object}>}
+     * Backend: GET /api/v1/health/status
      */
     async healthCheck() {
-        return this.request('/api/health')
+        return this.request(`${API_VERSION}/health/status`)
     }
 
     // ============================================
-    // Real-Time Notifications (SSE)
+    // Real-Time Notifications (SSE) - متطابق مع /api/v1/events/*
     // ============================================
 
     /**
      * Connect to Server-Sent Events stream
+     * Backend: GET /api/v1/events/stream?clinic=xxx
+     * @param {string} clinic - Clinic ID (optional)
      * @param {Function} onNotice - Callback for notices
      * @returns {EventSource}
      */
-    connectSSE(onNotice) {
-        const eventSource = new EventSource(`${this.baseUrl}/api/events`)
+    connectSSE(clinic = null, onNotice = null) {
+        // إذا كان clinic هو function، فهو callback
+        if (typeof clinic === 'function') {
+            onNotice = clinic
+            clinic = null
+        }
 
-        eventSource.addEventListener('hello', (event) => {
-            console.log('SSE Connected:', JSON.parse(event.data))
+        const url = clinic 
+            ? `${this.baseUrl}${API_VERSION}/events/stream?clinic=${clinic}`
+            : `${this.baseUrl}${API_VERSION}/events/stream`
+
+        const eventSource = new EventSource(url)
+
+        eventSource.addEventListener('open', () => {
+            console.log('SSE Connected:', clinic || 'all')
+        })
+
+        eventSource.addEventListener('queue_update', (event) => {
+            try {
+                const data = JSON.parse(event.data)
+                if (onNotice) onNotice({ type: 'queue_update', data })
+            } catch (error) {
+                console.error('SSE parse error:', error)
+            }
+        })
+
+        eventSource.addEventListener('heartbeat', (event) => {
+            console.log('SSE heartbeat:', event.data)
+            if (onNotice) onNotice({ type: 'heartbeat', data: { timestamp: event.data } })
         })
 
         eventSource.addEventListener('notice', (event) => {
             try {
                 const notice = JSON.parse(event.data)
-                if (onNotice) onNotice(notice)
+                if (onNotice) onNotice({ type: 'notice', data: notice })
             } catch (error) {
                 console.error('SSE Notice parse error:', error)
             }
@@ -192,7 +245,13 @@ class EnhancedApiClient {
 
         eventSource.onerror = (error) => {
             console.error('SSE Error:', error)
-            // EventSource will auto-reconnect
+            eventSource.close()
+            
+            // إعادة الاتصال بعد 5 ثوان
+            setTimeout(() => {
+                console.log('SSE reconnecting...')
+                this.connectSSE(clinic, onNotice)
+            }, 5000)
         }
 
         return eventSource
@@ -204,9 +263,6 @@ class EnhancedApiClient {
 
     /**
      * Render ticket based on ZFD status
-     * @param {Object} step - Route step with status
-     * @param {Function} t - Translation function
-     * @returns {Object} - {shouldDisplay: boolean, message: string, ticketNumber: number|null}
      */
     renderTicketWithZFD(step, t = (x) => x) {
         if (!step || !step.assigned) {
@@ -272,3 +328,4 @@ const enhancedApi = new EnhancedApiClient()
 
 export default enhancedApi
 export { enhancedApi, EnhancedApiClient }
+

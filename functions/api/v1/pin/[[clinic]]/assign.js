@@ -1,10 +1,38 @@
 /**
- * PIN Assignment Endpoint (Simplified & Working)
+ * PIN Assignment Endpoint (With Atomic Lock)
  * POST /api/v1/pin/:clinic/assign
  * Headers: Idempotency-Key (optional)
  */
 
 const IDEMPOTENCY_TTL = 24 * 60 * 60; // 24 hours
+
+/**
+ * Acquire atomic lock for critical operations
+ * @param {KVNamespace} kvLocks - KV namespace for locks
+ * @param {string} key - Lock key
+ * @param {number} ttl - Lock timeout in milliseconds
+ * @returns {Promise<boolean>} - True if lock acquired
+ */
+const acquireLock = async (kvLocks, key, ttl = 3000) => {
+  const lockKey = `lock:${key}`;
+  const start = Date.now();
+  while (Date.now() - start < ttl) {
+    const acquired = await kvLocks.put(lockKey, "1", { expirationTtl: 3, nx: true });
+    if (acquired === null) return true; // Lock acquired
+    await new Promise(r => setTimeout(r, 100));
+  }
+  throw new Error("LOCK_TIMEOUT");
+};
+
+/**
+ * Release atomic lock
+ * @param {KVNamespace} kvLocks - KV namespace for locks
+ * @param {string} key - Lock key
+ */
+const releaseLock = async (kvLocks, key) => {
+  const lockKey = `lock:${key}`;
+  await kvLocks.delete(lockKey);
+};
 
 export async function onRequestPost(context) {
   const { request, env, params } = context;
@@ -34,77 +62,86 @@ export async function onRequestPost(context) {
     const qatarTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Qatar' }));
     const dateKey = qatarTime.toISOString().split('T')[0];
 
-    // Get today's PINs state
-    const pinsKey = `pins:${clinic}:${dateKey}`;
-    let pinsData = await env.KV_PINS.get(pinsKey, { type: 'json' });
+    // Acquire lock for atomic operation
+    const lockKey = `${clinic}:${dateKey}`;
+    await acquireLock(env.KV_LOCKS || env.KV_CACHE, lockKey);
 
-    // Initialize if not exists
-    if (!pinsData) {
-      pinsData = initializeDailyPins(dateKey);
+    try {
+      // Get today's PINs state
+      const pinsKey = `pins:${clinic}:${dateKey}`;
+      let pinsData = await env.KV_PINS.get(pinsKey, { type: 'json' });
+
+      // Initialize if not exists
+      if (!pinsData) {
+        pinsData = initializeDailyPins(dateKey);
+      }
+
+      // Try to pull PIN from available list
+      let assignedPin = null;
+      let reserveMode = false;
+
+      if (pinsData.available.length > 0) {
+        assignedPin = pinsData.available.shift();
+      } else if (pinsData.reserve.length > 0) {
+        assignedPin = pinsData.reserve.shift();
+        reserveMode = true;
+        pinsData.reserve_mode = true;
+      } else {
+        return jsonResponse({ 
+          error: 'No PINs available',
+          message: 'جميع الأرقام محجوزة لهذا اليوم'
+        }, 503);
+      }
+
+      // Update data
+      pinsData.taken.push(assignedPin);
+      pinsData.issued += 1;
+      pinsData.last_issued_at = new Date().toISOString();
+
+      // Save updated data
+      await env.KV_PINS.put(pinsKey, JSON.stringify(pinsData));
+
+      // Generate session code (barcode)
+      const sessionCode = generateSessionCode(clinic, assignedPin, dateKey);
+
+      // Log event
+      await logEvent(env.KV_EVENTS, {
+        type: 'PIN_ASSIGNED',
+        clinic: clinic,
+        pin: assignedPin,
+        session_code: sessionCode,
+        date: dateKey,
+        timestamp: new Date().toISOString(),
+        reserve_mode: reserveMode,
+        idempotency_key: idempotencyKey || null
+      });
+
+      // Prepare response
+      const response = {
+        success: true,
+        pin: assignedPin,
+        session_code: sessionCode,
+        clinic: clinic,
+        date: dateKey,
+        reserve_mode: reserveMode,
+        remaining: pinsData.available.length + pinsData.reserve.length,
+        timestamp: new Date().toISOString()
+      };
+
+      // Cache response for idempotency
+      if (idempotencyKey) {
+        await env.KV_CACHE.put(
+          `idempotency:${idempotencyKey}`,
+          JSON.stringify(response),
+          { expirationTtl: IDEMPOTENCY_TTL }
+        );
+      }
+
+      return jsonResponse(response, 200);
+    } finally {
+      // Release lock
+      await releaseLock(env.KV_LOCKS || env.KV_CACHE, lockKey);
     }
-
-    // Try to pull PIN from available list
-    let assignedPin = null;
-    let reserveMode = false;
-
-    if (pinsData.available.length > 0) {
-      assignedPin = pinsData.available.shift();
-    } else if (pinsData.reserve.length > 0) {
-      assignedPin = pinsData.reserve.shift();
-      reserveMode = true;
-      pinsData.reserve_mode = true;
-    } else {
-      return jsonResponse({ 
-        error: 'No PINs available',
-        message: 'جميع الأرقام محجوزة لهذا اليوم'
-      }, 503);
-    }
-
-    // Update data
-    pinsData.taken.push(assignedPin);
-    pinsData.issued += 1;
-    pinsData.last_issued_at = new Date().toISOString();
-
-    // Save updated data
-    await env.KV_PINS.put(pinsKey, JSON.stringify(pinsData));
-
-    // Generate session code (barcode)
-    const sessionCode = generateSessionCode(clinic, assignedPin, dateKey);
-
-    // Log event
-    await logEvent(env.KV_EVENTS, {
-      type: 'PIN_ASSIGNED',
-      clinic: clinic,
-      pin: assignedPin,
-      session_code: sessionCode,
-      date: dateKey,
-      timestamp: new Date().toISOString(),
-      reserve_mode: reserveMode,
-      idempotency_key: idempotencyKey || null
-    });
-
-    // Prepare response
-    const response = {
-      success: true,
-      pin: assignedPin,
-      session_code: sessionCode,
-      clinic: clinic,
-      date: dateKey,
-      reserve_mode: reserveMode,
-      remaining: pinsData.available.length + pinsData.reserve.length,
-      timestamp: new Date().toISOString()
-    };
-
-    // Cache response for idempotency
-    if (idempotencyKey) {
-      await env.KV_CACHE.put(
-        `idempotency:${idempotencyKey}`,
-        JSON.stringify(response),
-        { expirationTtl: IDEMPOTENCY_TTL }
-      );
-    }
-
-    return jsonResponse(response, 200);
 
   } catch (error) {
     return jsonResponse({
@@ -164,7 +201,8 @@ function jsonResponse(data, status = 200) {
   return new Response(JSON.stringify(data, null, 2), {
     status: status,
     headers: {
-      'Content-Type': 'application/json',
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': 'no-store',
       'Access-Control-Allow-Origin': '*',
       'Access-Control-Allow-Methods': 'GET, POST, PUT, DELETE, OPTIONS',
       'Access-Control-Allow-Headers': 'Content-Type, Authorization, Idempotency-Key'

@@ -1,7 +1,7 @@
 // Queue Status - Get current queue status for a clinic
 // Returns current serving number, total length, and waiting count
 
-import { getKV } from '../../../lib/kv.js';
+// Direct KV access
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -20,7 +20,7 @@ export async function onRequest(context) {
   }
   
   try {
-    const kv = getKV(env);
+    const kv = env.KV_QUEUES;
     
     // Get queue status
     const statusKey = `queue:status:${clinic}`;

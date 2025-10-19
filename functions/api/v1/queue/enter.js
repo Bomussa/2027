@@ -2,7 +2,7 @@
 // Each clinic has independent queue starting from 1
 // Queue numbers are separate from PIN system
 
-import { getKV } from '../../../lib/kv.js';
+// Direct KV access
 
 // Atomic lock helpers
 function generateLockId() {
@@ -73,7 +73,7 @@ export async function onRequest(context) {
       });
     }
     
-    const kv = getKV(env);
+    const kv = env.KV_QUEUES;
     const lockKey = `lock:queue:${clinic}`;
     const lockId = generateLockId();
     

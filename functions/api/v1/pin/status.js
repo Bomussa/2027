@@ -1,7 +1,7 @@
 // Get daily PINs for all clinics
 // PINs are static per clinic and change daily at 05:00 Asia/Qatar
 
-import { getKV } from '../../../lib/kv.js';
+// Direct KV access
 
 const CLINICS = [
   'lab', 'xray', 'eyes', 'internal', 'ent', 'surgery', 
@@ -42,7 +42,7 @@ export async function onRequest(context) {
   const { env } = context;
   
   try {
-    const kv = getKV(env);
+    const kv = env.KV_PINS;
     const today = getQatarDate();
     const key = `pins:daily:${today}`;
     

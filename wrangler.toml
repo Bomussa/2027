@@ -1,17 +1,6 @@
-name = "mmc-mms-2027"
-main = "functions/api/v1/events/stream.js"
-compatibility_date = "2025-10-19"
-pages_build_output_dir = "functions"
-workers_dev = true
-compatibility_flags = ["nodejs_compat"]
-
-[build]
-command = "npm run build"
-upload_format = "modules"
-
-[[routes]]
-pattern = "https://www.mmc-mms.com/api/v1/events/stream"
-zone_name = "mmc-mms.com"
+name = "mmc-mms"
+compatibility_date = "2025-10-18"
+pages_build_output_dir = "dist"
 
 [[kv_namespaces]]
 binding = "KV_ADMIN"

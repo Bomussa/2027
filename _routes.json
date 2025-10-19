@@ -1,10 +1,9 @@
 {
   "version": 1,
   "include": [
-    "/api/*"
+    "/*"
   ],
   "exclude": [
-    "/api/v1/events/stream"
     "/_headers",
     "/_redirects",
     "/static/*",
@@ -12,6 +11,11 @@
     "/images/*",
     "/css/*",
     "/js/*"
+  ],
+  "functions": [
+    {
+      "pattern": "/api/v1/events/stream",
+      "script": "functions/api/v1/events/stream.js"
+    }
   ]
 }
-

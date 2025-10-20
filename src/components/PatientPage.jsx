@@ -171,7 +171,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
 
         {/* Header */}
         <div className="text-center space-y-4">
-          <img src="/img/logo.svg" alt="قيادة الخدمات الطبية" className="mx-auto w-24 h-24 object-contain bg-white rounded-none shadow-lg p-0" style={{ background: 'white' }} />
+          <img src="/logo.jpeg" alt="قيادة الخدمات الطبية" className="mx-auto w-24 h-24 object-contain rounded-full shadow-lg" />
 
           <div>
             <h1 className="text-2xl font-bold text-white">

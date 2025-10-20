@@ -2,6 +2,11 @@
 // Uses timestamp-based unique IDs (guaranteed 100% unique)
 // Each clinic has independent queue
 
+// In-memory storage (fallback when KV is not available)
+const memoryQueues = new Map();
+const memoryUsers = new Map();
+const memoryStatus = new Map();
+
 function generateUniqueNumber() {
   // Generate unique number using timestamp + random
   // Format: YYYYMMDDHHMMSS + 4-digit random
@@ -12,9 +17,10 @@ function generateUniqueNumber() {
   const hours = String(now.getHours()).padStart(2, '0');
   const minutes = String(now.getMinutes()).padStart(2, '0');
   const seconds = String(now.getSeconds()).padStart(2, '0');
-  const random = String(Math.floor(Math.random() * 10000)).padStart(4, '0');
+  const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
+  const random = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
   
-  return parseInt(`${year}${month}${day}${hours}${minutes}${seconds}${random}`);
+  return parseInt(`${year}${month}${day}${hours}${minutes}${seconds}${milliseconds}${random}`);
 }
 
 export async function onRequest(context) {
@@ -26,7 +32,10 @@ export async function onRequest(context) {
       error: 'Method not allowed'
     }), {
       status: 405,
-      headers: { 'Content-Type': 'application/json; charset=utf-8' }
+      headers: { 
+        'Content-Type': 'application/json; charset=utf-8',
+        'Access-Control-Allow-Origin': '*'
+      }
     });
   }
   
@@ -40,14 +49,12 @@ export async function onRequest(context) {
         error: 'Missing clinic or user'
       }), {
         status: 400,
-        headers: { 'Content-Type': 'application/json; charset=utf-8' }
+        headers: { 
+          'Content-Type': 'application/json; charset=utf-8',
+          'Access-Control-Allow-Origin': '*'
+        }
       });
     }
-    
-    const kv = env.KV_QUEUES;
-    const statusKey = `queue:status:${clinic}`;
-    const userKey = `queue:user:${clinic}:${user}`;
-    const listKey = `queue:list:${clinic}`;
     
     // Generate unique number (guaranteed unique)
     const uniqueNumber = generateUniqueNumber();
@@ -61,24 +68,54 @@ export async function onRequest(context) {
       clinic: clinic
     };
     
-    await kv.put(userKey, JSON.stringify(userEntry), {
-      expirationTtl: 86400
-    });
+    // Try KV first, fallback to memory
+    const kv = env?.KV_QUEUES;
+    const statusKey = `queue:status:${clinic}`;
+    const userKey = `queue:user:${clinic}:${user}`;
+    const listKey = `queue:list:${clinic}`;
     
-    // Add to queue list
-    const queueList = await kv.get(listKey, { type: 'json' }) || [];
-    queueList.push({
-      number: uniqueNumber,
-      user: user,
-      entered_at: userEntry.entered_at
-    });
+    let queueList = [];
+    let status = { current: null, served: [] };
     
-    await kv.put(listKey, JSON.stringify(queueList), {
-      expirationTtl: 86400
-    });
+    if (kv) {
+      try {
+        // Use KV storage
+        await kv.put(userKey, JSON.stringify(userEntry), {
+          expirationTtl: 86400
+        });
+        
+        queueList = await kv.get(listKey, { type: 'json' }) || [];
+        queueList.push({
+          number: uniqueNumber,
+          user: user,
+          entered_at: userEntry.entered_at
+        });
+        
+        await kv.put(listKey, JSON.stringify(queueList), {
+          expirationTtl: 86400
+        });
+        
+        status = await kv.get(statusKey, { type: 'json' }) || { current: null, served: [] };
+      } catch (e) {
+        console.log('KV error, falling back to memory:', e);
+        kv = null; // Force fallback
+      }
+    }
     
-    // Get current status for "ahead" calculation
-    const status = await kv.get(statusKey, { type: 'json' }) || { current: null, served: [] };
+    if (!kv) {
+      // Use memory storage
+      memoryUsers.set(userKey, userEntry);
+      
+      queueList = memoryQueues.get(listKey) || [];
+      queueList.push({
+        number: uniqueNumber,
+        user: user,
+        entered_at: userEntry.entered_at
+      });
+      memoryQueues.set(listKey, queueList);
+      
+      status = memoryStatus.get(statusKey) || { current: null, served: [] };
+    }
     
     // Calculate how many are ahead
     let ahead = 0;
@@ -105,18 +142,36 @@ export async function onRequest(context) {
       status: 200,
       headers: { 
         'Content-Type': 'application/json; charset=utf-8',
-        'Cache-Control': 'no-cache, no-store, must-revalidate'
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Access-Control-Allow-Origin': '*'
       }
     });
     
   } catch (error) {
+    console.error('Queue enter error:', error);
     return new Response(JSON.stringify({
       success: false,
       error: error.message
     }), {
       status: 500,
-      headers: { 'Content-Type': 'application/json; charset=utf-8' }
+      headers: { 
+        'Content-Type': 'application/json; charset=utf-8',
+        'Access-Control-Allow-Origin': '*'
+      }
     });
   }
+}
+
+// Handle OPTIONS for CORS
+export async function onRequestOptions() {
+  return new Response(null, {
+    status: 204,
+    headers: {
+      'Access-Control-Allow-Origin': '*',
+      'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      'Access-Control-Allow-Headers': 'Content-Type',
+      'Access-Control-Max-Age': '86400'
+    }
+  });
 }
 

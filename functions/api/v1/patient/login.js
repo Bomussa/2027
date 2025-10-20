@@ -2,6 +2,9 @@
 // POST /api/v1/patient/login
 // Body: { patientId, gender }
 
+// In-memory storage (will be replaced by KV when available)
+const sessions = new Map();
+
 export const onRequestPost = async (context) => {
   const { request, env } = context;
 
@@ -71,8 +74,11 @@ export const onRequestPost = async (context) => {
       status: 'logged_in'
     };
 
-    // Store in KV if available
-    if (env.KV_CACHE) {
+    // Store in memory first
+    sessions.set(sessionId, patientData);
+
+    // Try to store in KV if available
+    if (env?.KV_CACHE) {
       try {
         await env.KV_CACHE.put(
           `patient:${sessionId}`,
@@ -80,7 +86,7 @@ export const onRequestPost = async (context) => {
           { expirationTtl: 86400 } // 24 hours
         );
       } catch (e) {
-        console.error('KV storage error:', e);
+        console.log('KV storage not available, using memory storage');
       }
     }
 

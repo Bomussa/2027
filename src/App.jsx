@@ -80,7 +80,7 @@ function App() {
     }
 
     try {
-      es = new EventSource('/api/events')
+      es = new EventSource('/api/v1/events/stream')
       es.onopen = () => { connected = true }
       es.onmessage = (ev) => {
         try {

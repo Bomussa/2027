@@ -69,7 +69,7 @@ export async function onRequest(context) {
     };
     
     // Try KV first, fallback to memory
-    const kv = env?.KV_QUEUES;
+    let kv = env?.KV_QUEUES;
     const statusKey = `queue:status:${clinic}`;
     const userKey = `queue:user:${clinic}:${user}`;
     const listKey = `queue:list:${clinic}`;

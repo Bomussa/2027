@@ -1,51 +1,46 @@
-// === Real-time UI Toasts for Queue Events ===
-import { toast } from 'react-hot-toast';
-
-function playSound(type) {
+// === Real-time UI Toasts for Queue Events (Safe Dynamic Import) ===
+import eventBus from './event-bus.js';
+let toast;
+(async () => {
   try {
-    const audio = new Audio(`/sounds/${type}.mp3`);
-    audio.play().catch(() => { });
-  } catch { }
-}
+    const { toast: importedToast } = await import('react-hot-toast');
+    toast = importedToast;
+  } catch (err) {
+    toast = {
+      success: (msg) => console.log('[Toast ✅]', msg),
+      error: (msg) => console.error('[Toast ❌]', msg),
+      loading: (msg) => console.info('[Toast ⏳]', msg),
+    };
+    console.warn('⚠️ react-hot-toast غير مثبت — تم تفعيل fallback console logger.');
+  }
 
-function vibrateDevice() {
-  if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
-}
+  // Real-time listeners for frontend notifications
+  eventBus.on('queue:near_turn', (data) => {
+    toast.success(`يقترب دورك في ${data?.clinicName || 'العيادة'}`);
+  });
 
-// Real-time listeners for frontend notifications
-eventBus.on('queue:near_turn', (data) => {
-  const { clinicName, position } = data;
-  toast(`📢 اقترب دورك في ${clinicName}. موقعك الحالي: ${position}`, { duration: 4000 });
-  playSound('near_turn');
-});
+  eventBus.on('queue:your_turn', (data) => {
+    toast.loading(`الآن دورك في ${data?.clinicName || 'العيادة'}`);
+    if (navigator.vibrate) navigator.vibrate(200);
+    new Audio('/sounds/notify.mp3').play().catch(() => {});
+  });
 
-eventBus.on('queue:your_turn', (data) => {
-  const { clinicName, number } = data;
-  toast.success(`🎯 الآن دورك في ${clinicName} (رقم ${number})`, { duration: 5000 });
-  vibrateDevice();
-  playSound('your_turn');
-});
+  eventBus.on('queue:step_done', (data) => {
+    toast.success(
+      data?.nextClinic
+        ? `تم إنهاء الفحص، توجه إلى ${data.nextClinic}`
+        : `تم إنهاء الفحص، انتظر التعليمات`
+    );
+  });
 
-eventBus.on('queue:step_done', (data) => {
-  const { currentClinic, nextClinic } = data;
-  if (nextClinic)
-    toast(`✅ فحصك في ${currentClinic} انتهى. انتقل الآن إلى ${nextClinic}.`);
-  else
-    toast(`🏁 فحصك في ${currentClinic} انتهى. انتظر التعليمات القادمة.`);
-  playSound('step_done');
-});
-
-// Manual test helper
-window.testNotify = () => {
-  eventBus.emit('queue:near_turn', { clinicName: 'الباطنية', position: 2 });
-  eventBus.emit('queue:your_turn', { clinicName: 'العيون', number: 7 });
-  eventBus.emit('queue:step_done', { currentClinic: 'الأسنان', nextClinic: 'الأنف والأذن' });
-  console.log('✅ Manual notification test triggered.');
-};
+  // Manual test helper
+  window.testNotify = () => {
+    toast.success('🔔 اختبار إشعار ناجح!');
+    if (navigator.vibrate) navigator.vibrate(100);
+  };
+})();
 // محرك الإشعارات الفوري - Real-time Notifications
 // يعمل لحظياً بدون أي تأخير
-
-import eventBus from './event-bus.js'
 
 const NOTIFICATION_TYPES = {
   START_HINT: 'START_HINT',

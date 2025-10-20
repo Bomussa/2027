@@ -1,3 +1,47 @@
+// === Real-time UI Toasts for Queue Events ===
+import { toast } from 'react-hot-toast';
+
+function playSound(type) {
+  try {
+    const audio = new Audio(`/sounds/${type}.mp3`);
+    audio.play().catch(() => { });
+  } catch { }
+}
+
+function vibrateDevice() {
+  if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
+}
+
+// Real-time listeners for frontend notifications
+eventBus.on('queue:near_turn', (data) => {
+  const { clinicName, position } = data;
+  toast(`📢 اقترب دورك في ${clinicName}. موقعك الحالي: ${position}`, { duration: 4000 });
+  playSound('near_turn');
+});
+
+eventBus.on('queue:your_turn', (data) => {
+  const { clinicName, number } = data;
+  toast.success(`🎯 الآن دورك في ${clinicName} (رقم ${number})`, { duration: 5000 });
+  vibrateDevice();
+  playSound('your_turn');
+});
+
+eventBus.on('queue:step_done', (data) => {
+  const { currentClinic, nextClinic } = data;
+  if (nextClinic)
+    toast(`✅ فحصك في ${currentClinic} انتهى. انتقل الآن إلى ${nextClinic}.`);
+  else
+    toast(`🏁 فحصك في ${currentClinic} انتهى. انتظر التعليمات القادمة.`);
+  playSound('step_done');
+});
+
+// Manual test helper
+window.testNotify = () => {
+  eventBus.emit('queue:near_turn', { clinicName: 'الباطنية', position: 2 });
+  eventBus.emit('queue:your_turn', { clinicName: 'العيون', number: 7 });
+  eventBus.emit('queue:step_done', { currentClinic: 'الأسنان', nextClinic: 'الأنف والأذن' });
+  console.log('✅ Manual notification test triggered.');
+};
 // محرك الإشعارات الفوري - Real-time Notifications
 // يعمل لحظياً بدون أي تأخير
 
@@ -20,11 +64,11 @@ class RealtimeNotificationEngine {
     // تخزين الإشعارات
     this.notifications = new Map() // patientId -> notification[]
     this.adminNotifications = []
-    
+
     // المشتركون - للإشعارات الفورية
     this.subscribers = new Map() // patientId -> Set<callback>
     this.adminSubscribers = new Set()
-    
+
     // ربط مع event bus للإشعارات العامة
     this.setupEventBusListeners()
   }
@@ -42,15 +86,15 @@ class RealtimeNotificationEngine {
     if (!this.subscribers.has(patientId)) {
       this.subscribers.set(patientId, new Set())
     }
-    
+
     // إضافة callback
     this.subscribers.get(patientId).add(callback)
-    
+
     // تحميل الإشعارات السابقة من localStorage
     this.loadFromStorage(patientId)
-    
+
     // لا نرسل إشعار ترحيب تلقائياً - فقط عند الطلب الصريح
-    
+
     // إرجاع دالة إلغاء الاشتراك
     return () => {
       const subs = this.subscribers.get(patientId)
@@ -68,10 +112,10 @@ class RealtimeNotificationEngine {
    */
   subscribeAdmin(callback) {
     this.adminSubscribers.add(callback)
-    
+
     // تحميل الإشعارات السابقة
     this.loadAdminNotifications()
-    
+
     return () => {
       this.adminSubscribers.delete(callback)
     }
@@ -91,22 +135,22 @@ class RealtimeNotificationEngine {
       read: false,
       ...notification
     }
-    
+
     // حفظ الإشعار
     if (!this.notifications.has(patientId)) {
       this.notifications.set(patientId, [])
     }
     this.notifications.get(patientId).push(fullNotification)
-    
+
     // الاحتفاظ بآخر 100 إشعار فقط
     const patientNotifications = this.notifications.get(patientId)
     if (patientNotifications.length > 100) {
       patientNotifications.shift()
     }
-    
+
     // حفظ في localStorage فوراً
     this.saveToStorage(patientId)
-    
+
     // إرسال فوري لجميع المشتركين
     const callbacks = this.subscribers.get(patientId)
     if (callbacks && callbacks.size > 0) {
@@ -118,10 +162,10 @@ class RealtimeNotificationEngine {
         }
       })
     }
-    
+
     // إصدار event عام
     eventBus.emit('notification', { patientId, ...fullNotification })
-    
+
     // تشغيل الصوت والاهتزاز حسب الأولوية
     this.triggerAlerts(fullNotification)
   }
@@ -136,18 +180,18 @@ class RealtimeNotificationEngine {
       read: false,
       ...notification
     }
-    
+
     // حفظ الإشعار
     this.adminNotifications.push(fullNotification)
-    
+
     // الاحتفاظ بآخر 200 إشعار
     if (this.adminNotifications.length > 200) {
       this.adminNotifications.shift()
     }
-    
+
     // حفظ في localStorage
     localStorage.setItem('admin_notifications', JSON.stringify(this.adminNotifications))
-    
+
     // إرسال فوري لجميع المشتركين
     this.adminSubscribers.forEach(callback => {
       try {
@@ -156,7 +200,7 @@ class RealtimeNotificationEngine {
         console.error('Error in admin notification callback:', e)
       }
     })
-    
+
     // إصدار event
     eventBus.emit('admin_notification', fullNotification)
   }
@@ -215,7 +259,7 @@ class RealtimeNotificationEngine {
     this.notifyPatient(patientId, {
       type: NOTIFICATION_TYPES.STEP_DONE_NEXT,
       title: '✅ تم إنهاء الفحص',
-      message: nextClinic 
+      message: nextClinic
         ? `تم إنهاء ${currentClinic}. انتقل الآن إلى ${nextClinic}`
         : `تم إنهاء ${currentClinic}. انتظر التعليمات`,
       currentClinic,
@@ -309,10 +353,10 @@ class RealtimeNotificationEngine {
     if (notification.sound) {
       this.playSound(notification.priority)
     }
-    
+
     // الاهتزاز
     if (notification.vibrate && 'vibrate' in navigator) {
-      switch(notification.priority) {
+      switch (notification.priority) {
         case 'urgent':
           navigator.vibrate([200, 100, 200, 100, 200])
           break
@@ -323,7 +367,7 @@ class RealtimeNotificationEngine {
           navigator.vibrate(200)
       }
     }
-    
+
     // Browser Notification (إذا كان مسموحاً)
     if (notification.priority === 'urgent' || notification.priority === 'high') {
       this.showBrowserNotification(notification)
@@ -338,12 +382,12 @@ class RealtimeNotificationEngine {
       const audioContext = new (window.AudioContext || window.webkitAudioContext)()
       const oscillator = audioContext.createOscillator()
       const gainNode = audioContext.createGain()
-      
+
       oscillator.connect(gainNode)
       gainNode.connect(audioContext.destination)
-      
+
       // تحديد التردد والصوت حسب الأولوية
-      switch(priority) {
+      switch (priority) {
         case 'urgent':
           oscillator.frequency.value = 880 // A5
           gainNode.gain.value = 0.3
@@ -353,14 +397,14 @@ class RealtimeNotificationEngine {
           }, 100)
           setTimeout(() => oscillator.stop(), 300)
           break
-          
+
         case 'high':
           oscillator.frequency.value = 659 // E5
           gainNode.gain.value = 0.2
           oscillator.start()
           setTimeout(() => oscillator.stop(), 200)
           break
-          
+
         default:
           oscillator.frequency.value = 523 // C5
           gainNode.gain.value = 0.15
@@ -478,31 +522,31 @@ class RealtimeNotificationEngine {
     eventBus.on('queue:near_turn', ({ patientId, clinicName, position }) => {
       this.sendNearTurn(patientId, clinicName, position)
     })
-    
+
     eventBus.on('queue:your_turn', ({ patientId, clinicName, number }) => {
       this.sendYourTurn(patientId, clinicName, number)
     })
-    
+
     eventBus.on('queue:step_done', ({ patientId, currentClinic, nextClinic }) => {
       this.sendStepDone(patientId, currentClinic, nextClinic)
     })
-    
+
     eventBus.on('queue:update', ({ patientId, clinicName, position, totalWaiting }) => {
       this.sendQueueUpdate(patientId, clinicName, position, totalWaiting)
     })
-    
+
     eventBus.on('clinic:opened', ({ clinicName, pin }) => {
       this.sendClinicOpened(clinicName, pin)
     })
-    
+
     eventBus.on('clinic:closed', ({ clinicName }) => {
       this.sendClinicClosed(clinicName)
     })
-    
+
     eventBus.on('pin:generated', ({ clinicName, pin }) => {
       this.sendPINGenerated(clinicName, pin)
     })
-    
+
     eventBus.on('system:reset', () => {
       this.sendResetDone()
     })

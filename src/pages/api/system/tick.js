@@ -1,4 +1,8 @@
 // pages/api/system/tick.js - المجدول التلقائي (يتم استدعاؤه كل دقيقة)
+
+// --- Safety layer: per-clinic lightweight lock ---
+const clinicLastProcessed = new Map();
+
 import db from '../../../lib/db.js';
 import { callNextPatient, expireNoShows } from '../../../lib/queueManager.js';
 import { isWorkingHours } from '../../../lib/settings.js';
@@ -21,7 +25,7 @@ export default async function handler(req, res) {
   try {
     // التحقق من ساعات العمل
     results.workingHours = await isWorkingHours();
-    
+
     if (!results.workingHours) {
       return res.json({
         success: true,
@@ -41,6 +45,12 @@ export default async function handler(req, res) {
 
     // معالجة كل عيادة
     for (const clinic of clinics) {
+      // --- Safety layer: skip if processed in last 1s ---
+      const now = Date.now();
+      const last = clinicLastProcessed.get(clinic.id) || 0;
+      if (now - last < 1000) continue; // Skip if processed in last 1s
+      clinicLastProcessed.set(clinic.id, now);
+
       const clinicResult = {
         clinicId: clinic.id,
         clinicName: clinic.name,
@@ -58,7 +68,7 @@ export default async function handler(req, res) {
         // استدعاء مراجع جديد
         const callResult = await callNextPatient(clinic.id);
         clinicResult.callResult = callResult;
-        
+
         if (callResult.success) {
           results.calledPatients++;
         }
@@ -77,7 +87,7 @@ export default async function handler(req, res) {
       const { rows: cleanupResult } = await db.query(`
         SELECT cleanup_expired_notifications() as deleted_count
       `);
-      
+
       results.cleanedNotifications = cleanupResult[0]?.deleted_count || 0;
     } catch (error) {
       results.errors.push(`Notification cleanup: ${error.message}`);
@@ -102,9 +112,9 @@ export default async function handler(req, res) {
 
   } catch (error) {
     console.error('Error in system tick:', error);
-    
+
     const executionTime = Date.now() - startTime;
-    
+
     return res.status(500).json({
       success: false,
       error: 'System tick failed',

@@ -1,3 +1,5 @@
+// Ensure notification listeners are active globally
+import './core/notification-engine.js';
 import React, { useState, useEffect } from 'react'
 import { LoginPage } from './components/LoginPage'
 import { ExamSelectionPage } from './components/ExamSelectionPage'

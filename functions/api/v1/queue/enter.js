@@ -93,6 +93,21 @@ export async function onRequest(context) {
       ahead = queueList.filter(item => item.number < uniqueNumber).length;
     }
     
+    // Trigger auto-notifications for the queue
+    try {
+      // Call auto-notify endpoint asynchronously (don't wait for response)
+      const notifyUrl = new URL(request.url);
+      notifyUrl.pathname = '/api/v1/queue/auto-notify';
+      
+      fetch(notifyUrl.toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clinic })
+      }).catch(() => {}); // Ignore errors
+    } catch (e) {
+      // Ignore notification errors
+    }
+    
     return new Response(JSON.stringify({
       success: true,
       clinic: clinic,

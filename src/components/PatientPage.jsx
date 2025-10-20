@@ -47,21 +47,48 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
 
   // Connect to SSE for real-time notifications
   useEffect(() => {
-    const eventSource = enhancedApi.connectSSE((notice) => {
-      // Filter notices for this patient only
-      if (notice.visitId === patientData?.id || !notice.visitId) {
-        setCurrentNotice(notice)
-        enhancedApi.playNotificationSound()
-
+    if (!patientData?.id) return;
+    
+    // Connect to SSE with user parameter
+    const url = `/api/v1/events/stream?user=${patientData.id}`;
+    const eventSource = new EventSource(url);
+    
+    eventSource.addEventListener('queue_update', (e) => {
+      try {
+        const data = JSON.parse(e.data);
+        const message = language === 'ar' ? data.message : data.messageEn;
+        
+        // Show notification
+        setCurrentNotice({
+          type: data.type,
+          message,
+          position: data.position,
+          clinic: data.clinic
+        });
+        
+        // Play sound
+        enhancedApi.playNotificationSound();
+        
         // Auto-dismiss after 10 seconds
-        setTimeout(() => setCurrentNotice(null), 10000)
+        setTimeout(() => setCurrentNotice(null), 10000);
+      } catch (err) {
+        console.error('SSE parse error:', err);
       }
-    })
+    });
+    
+    eventSource.addEventListener('connected', (e) => {
+      console.log('SSE connected:', e.data);
+    });
+    
+    eventSource.onerror = (err) => {
+      console.error('SSE error:', err);
+      eventSource.close();
+    };
 
     return () => {
-      if (eventSource) eventSource.close()
-    }
-  }, [patientData?.id])
+      eventSource.close();
+    };
+  }, [patientData?.id, language])
 
   // أزلنا فتح العيادة عبر PIN: PIN فقط لتأكيد الخروج من العيادة المحددة
 

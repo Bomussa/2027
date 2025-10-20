@@ -5,7 +5,8 @@ export async function onRequestGet(context) {
   const { env } = context;
   
   try {
-    const kv = env.KV_QUEUES;
+    const kv = env.MMC_KV;
+    const dateKey = new Date().toISOString().split('T')[0];
     
     // List of all clinics with names
     const clinics = [
@@ -31,35 +32,38 @@ export async function onRequestGet(context) {
     
     // Get stats for each clinic
     for (const clinic of clinics) {
-      const listKey = `queue:list:${clinic.id}`;
-      const statusKey = `queue:status:${clinic.id}`;
+      const queueKey = `queue:${clinic.id}:${dateKey}`;
+      const queueData = await kv.get(queueKey, { type: 'json' });
       
-      const queueList = await kv.get(listKey, { type: 'json' }) || [];
-      const statusData = await kv.get(statusKey, { type: 'json' });
-      const status = statusData || { current: null, served: [] };
-      
-      // Ensure served array exists
-      if (!status.served) {
-        status.served = [];
+      if (!queueData) {
+        // No data for this clinic today
+        queues.push({
+          clinic: clinic.id,
+          name: clinic.name,
+          current: null,
+          current_display: 0,
+          total: 0,
+          waiting: 0,
+          completed: 0,
+          active: false
+        });
+        continue;
       }
       
-      // Calculate waiting
-      let waiting = 0;
-      if (status.current) {
-        waiting = queueList.filter(item => item.number > status.current).length;
-      } else {
-        waiting = queueList.length;
-      }
+      const waiting = queueData.waiting ? queueData.waiting.length : 0;
+      const inService = queueData.in ? queueData.in.length : 0;
+      const completed = queueData.done ? queueData.done.length : 0;
+      const total = waiting + inService + completed;
       
       queues.push({
         clinic: clinic.id,
         name: clinic.name,
-        current: status.current,
-        current_display: status.served.length + 1,
-        total: queueList.length,
+        current: queueData.current || null,
+        current_display: completed + 1,
+        total: total,
         waiting: waiting,
-        completed: status.served.length,
-        active: queueList.length > 0
+        completed: completed,
+        active: total > 0
       });
     }
     

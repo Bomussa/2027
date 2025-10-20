@@ -5,7 +5,7 @@ export async function onRequestGet(context) {
   const { env } = context;
   
   try {
-    const kv = env.KV_QUEUES;
+    const kv = env.MMC_KV;
     
     // List of all clinics
     const clinics = [
@@ -21,29 +21,28 @@ export async function onRequestGet(context) {
     let waitTimeCount = 0;
     
     // Get stats for each clinic
+    const dateKey = new Date().toISOString().split('T')[0];
+    
     for (const clinic of clinics) {
-      const listKey = `queue:list:${clinic}`;
-      const statusKey = `queue:status:${clinic}`;
+      const queueKey = `queue:${clinic}:${dateKey}`;
+      const queueData = await kv.get(queueKey, { type: 'json' });
       
-      const queueList = await kv.get(listKey, { type: 'json' }) || [];
-      const status = await kv.get(statusKey, { type: 'json' }) || { current: null, served: [] };
+      if (!queueData) continue;
       
       // Count waiting patients
-      if (queueList.length > 0) {
-        totalWaiting += queueList.length;
+      if (queueData.waiting && queueData.waiting.length > 0) {
+        totalWaiting += queueData.waiting.length;
         activeQueues++;
       }
       
       // Count completed
-      if (status.served && Array.isArray(status.served)) {
-        completedToday += status.served.length;
-      }
-      
-      // Calculate wait times
-      if (status.served && Array.isArray(status.served)) {
-        for (const served of status.served) {
-          if (served.entered_at && served.called_at) {
-            const waitTime = new Date(served.called_at) - new Date(served.entered_at);
+      if (queueData.done && Array.isArray(queueData.done)) {
+        completedToday += queueData.done.length;
+        
+        // Calculate wait times
+        for (const entry of queueData.done) {
+          if (entry.issuedAt && entry.calledAt) {
+            const waitTime = new Date(entry.calledAt) - new Date(entry.issuedAt);
             totalWaitTime += waitTime;
             waitTimeCount++;
           }

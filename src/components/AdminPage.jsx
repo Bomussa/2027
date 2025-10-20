@@ -594,10 +594,10 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
         <div className="flex items-center justify-between px-6 py-4">
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
-              <img src="/logo.jpeg" alt="قيادة الخدمات الطبية" className="w-12 h-12 rounded-full" />
+              <img src="/img/logo.svg" alt="قيادة الخدمات الطبية" className="w-12 h-12 object-contain bg-white rounded-none p-0" style={{background:'white'}} />
               <div className="text-right">
-                <h1 className="text-white font-semibold text-lg">قيادة الخدمات الطبية</h1>
-                <p className="text-gray-400 text-sm">Medical Services</p>
+                <h1 className="text-white font-semibold text-lg">{language === 'ar' ? 'قيادة الخدمات الطبية' : 'Medical Services Directorate'}</h1>
+                <p className="text-gray-400 text-sm">{language === 'ar' ? 'الخدمات الطبية' : 'Military Medical Services'}</p>
               </div>
             </div>
           </div>

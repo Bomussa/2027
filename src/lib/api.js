@@ -73,7 +73,7 @@ class ApiService {
       // Offline fallbacks
       if (endpoint === `${API_VERSION}/queue/enter` && method === 'POST' && body?.user) {
         const id = Date.now().toString(36)
-        const data = { 
+        const data = {
           success: true,
           clinic: body.clinic,
           user: body.user,
@@ -140,10 +140,10 @@ class ApiService {
   async queueDone(clinic, user, pin) {
     return this.request(`${API_VERSION}/queue/done`, {
       method: 'POST',
-      body: JSON.stringify({ 
-        clinic, 
-        user, 
-        pin: String(pin) 
+      body: JSON.stringify({
+        clinic,
+        user,
+        pin: String(pin)
       })
     })
   }
@@ -222,7 +222,7 @@ class ApiService {
   connectSSE(clinic, callback) {
     const url = `${window.location.origin}${API_VERSION}/events/stream?clinic=${clinic}`
     const eventSource = new EventSource(url)
-    
+
     eventSource.addEventListener('queue_update', (e) => {
       try {
         const data = JSON.parse(e.data)
@@ -231,27 +231,27 @@ class ApiService {
         console.error('SSE parse error:', err)
       }
     })
-    
+
     eventSource.addEventListener('heartbeat', (e) => {
       console.log('SSE heartbeat received')
       callback({ type: 'heartbeat', data: { timestamp: e.data } })
     })
-    
+
     eventSource.onerror = (err) => {
       console.error('SSE connection error:', err)
       eventSource.close()
-      
+
       // إعادة الاتصال بعد 5 ثوان
       setTimeout(() => {
         console.log('SSE reconnecting...')
         this.connectSSE(clinic, callback)
       }, 5000)
     }
-    
+
     eventSource.onopen = () => {
       console.log('SSE connected to', clinic)
     }
-    
+
     return eventSource
   }
 
@@ -366,29 +366,31 @@ class ApiService {
     return { success: true, report: 'Generated' }
   }
 
-  async getReportHistory(adminCode) {
-    return { reports: [] }
+  // جلب التقارير الحديثة من الباك اند
+  async getRecentReports(adminCode) {
+    // استدعاء endpoint حقيقي من الباك اند
+    return this.request(`${API_VERSION}/reports/history?adminCode=${encodeURIComponent(adminCode)}`)
   }
 
   connectWebSocket() {
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
     const wsUrl = `${protocol}//${window.location.host}`
-    
+
     const ws = new WebSocket(wsUrl)
-    
+
     ws.onopen = () => {
       console.log('WebSocket connected')
     }
-    
+
     ws.onclose = () => {
       console.log('WebSocket disconnected')
       setTimeout(() => this.connectWebSocket(), 3000)
     }
-    
+
     ws.onerror = (error) => {
       console.error('WebSocket error:', error)
     }
-    
+
     return ws
   }
 }

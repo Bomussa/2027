@@ -1,0 +1,50 @@
+name = "mms-api"
+main = "src/index.js"
+compatibility_date = "2025-10-18"
+compatibility_flags = ["nodejs_compat"]
+
+# Routes - تأكد من تحديث zone_name
+routes = [
+  { pattern = "www.mmc-mms.com/api/v1/*", zone_name = "mmc-mms.com" },
+  { pattern = "mmc-mms.com/api/v1/*", zone_name = "mmc-mms.com" }
+]
+
+# KV Namespaces
+[[kv_namespaces]]
+binding = "KV_ADMIN"
+id = "fd4470d6a7f34709b3486b1ab0ade4e7"
+
+[[kv_namespaces]]
+binding = "KV_PINS"
+id = "7d71bfe9e606486f9124400a4f3c34e2"
+
+[[kv_namespaces]]
+binding = "KV_QUEUES"
+id = "046e391c8e6d4120b3619fa69456fc72"
+
+[[kv_namespaces]]
+binding = "KV_EVENTS"
+id = "250f2f79e4fe4d42b1db529123a3f5a1"
+
+[[kv_namespaces]]
+binding = "KV_LOCKS"
+id = "99b12b0fa33e4d57a8bd1447ab80236f"
+
+[[kv_namespaces]]
+binding = "KV_CACHE"
+id = "1d3d4e6c12174b7797b356234794e7e5"
+
+# Environment Variables
+[vars]
+TIMEZONE = "Asia/Qatar"
+NODE_ENV = "production"
+
+# Observability
+[observability]
+enabled = true
+head_sampling_rate = 1.0
+
+# Triggers - للمراقبة الدورية
+[triggers]
+crons = ["*/5 * * * *"]
+

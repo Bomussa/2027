@@ -68,19 +68,37 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
 
   const loadQueues = async () => {
     try {
-      const data = await api.getQueues()
-      if (data && data.queues && Array.isArray(data.queues)) {
-        // تصفية الطوابير النشطة فقط
-        const activeQueues = data.queues.filter(q => q.active && q.total > 0)
-        setQueues(activeQueues.map(q => ({
-          id: q.clinic,
-          name: q.name,
-          nameAr: q.name,
-          current: q.current_display,
-          waiting: q.waiting,
-          total: q.total,
-          avgTime: 0
-        })))
+      const data = await api.getAdminStatus()
+      if (data && data.success && data.queues) {
+        const clinicNames = {
+          lab: 'المختبر والأشعة',
+          xray: 'الأشعة',
+          vitals: 'القياسات الحيوية',
+          ecg: 'تخطيط القلب',
+          audio: 'السمعيات',
+          eyes: 'عيادة العيون',
+          internal: 'عيادة الباطنية',
+          ent: 'عيادة أنف وأذن وحنجرة',
+          surgery: 'عيادة الجراحة العامة',
+          dental: 'عيادة الأسنان',
+          psychiatry: 'عيادة النفسية',
+          derma: 'عيادة الجلدية',
+          bones: 'عيادة العظام والمفاصل'
+        }
+        
+        const queuesArray = Object.entries(data.queues).map(([clinicId, queueData]) => ({
+          id: clinicId,
+          name: clinicNames[clinicId] || clinicId,
+          nameAr: clinicNames[clinicId] || clinicId,
+          current: queueData.current,
+          waiting: queueData.waiting || 0,
+          total: queueData.list?.length || 0,
+          pin: queueData.pin,
+          avgTime: 0,
+          list: queueData.list || []
+        }))
+        
+        setQueues(queuesArray)
       }
     } catch (error) {
       console.error('Failed to load queues:', error)
@@ -350,19 +368,26 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
               <CardContent className="p-6">
                 <div className="flex items-center justify-between">
                   <div className="flex-1">
-                    <h3 className="text-white font-semibold text-lg mb-2">{queue.name || queue.nameAr}</h3>
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="text-white font-semibold text-lg">{queue.name || queue.nameAr}</h3>
+                      {queue.pin && (
+                        <span className="px-3 py-1 bg-blue-500/20 border border-blue-500 rounded-lg text-blue-300 font-mono text-sm">
+                          PIN: {queue.pin}
+                        </span>
+                      )}
+                    </div>
                       <div className="grid grid-cols-3 gap-4 text-center">
                       <div>
-                        <p className="text-2xl font-bold text-white">{queue.current || 0}</p>
-                        <p className="text-gray-400 text-sm">الرقم الحالي</p>
+                        <p className="text-2xl font-bold text-white">{queue.current || '-'}</p>
+                        <p className="text-gray-400 text-sm">رقمك</p>
                       </div>
                       <div>
                         <p className="text-2xl font-bold text-yellow-400">{queue.waiting || 0}</p>
-                        <p className="text-gray-400 text-sm">في الانتظار</p>
+                        <p className="text-gray-400 text-sm">الحالي</p>
                       </div>
                       <div>
-                        <p className="text-2xl font-bold text-white">{queue.avgTime || 0}</p>
-                        <p className="text-gray-400 text-sm">متوسط الوقت (دقيقة)</p>
+                        <p className="text-2xl font-bold text-green-400">{queue.total || 0}</p>
+                        <p className="text-gray-400 text-sm">أمامك</p>
                       </div>
                     </div>
                   </div>

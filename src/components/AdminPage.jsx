@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from './Card'
 import { Button } from './Button'
 import { Input } from './Input'
@@ -35,18 +35,35 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
   const [queues, setQueues] = useState([])
   const [recentReports, setRecentReports] = useState([])
 
+  // مرجع للاحتفاظ بكائن SSE
+  const sseRef = useRef(null)
   useEffect(() => {
     loadStats()
     loadActivePins()
     loadQueues()
     loadRecentReports()
+    // تفعيل SSE للتحديث اللحظي
+    if (sseRef.current) sseRef.current.close()
+    sseRef.current = api.connectSSE('admin', (event) => {
+      if (event.type === 'queue_update' && event.data) {
+        if (event.data.stats) setStats(event.data)
+        if (event.data.queues) setQueues(event.data.queues)
+      }
+      if (event.type === 'stats_update' && event.data) {
+        setStats(event.data)
+      }
+    })
+    // Polling احتياطي كل 5 ثوانٍ
     const interval = setInterval(() => {
       loadStats()
       loadActivePins()
       loadQueues()
       loadRecentReports()
     }, 5000)
-    return () => clearInterval(interval)
+    return () => {
+      clearInterval(interval)
+      if (sseRef.current) sseRef.current.close()
+    }
   }, [])
 
   const loadQueues = async () => {

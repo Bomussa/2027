@@ -22,7 +22,7 @@ let toast;
   eventBus.on('queue:your_turn', (data) => {
     toast.loading(`الآن دورك في ${data?.clinicName || 'العيادة'}`);
     if (navigator.vibrate) navigator.vibrate(200);
-    new Audio('/sounds/notify.mp3').play().catch(() => {});
+    new Audio('/sounds/notify.mp3').play().catch(() => { });
   });
 
   eventBus.on('queue:step_done', (data) => {

@@ -7,7 +7,7 @@ import enhancedApi from '../lib/enhanced-api'
  * Displays real-time queue status for a clinic
  * NO VISUAL CHANGES - Uses existing admin panel styles
  */
-export function AdminQueueMonitor({ clinicId, autoRefresh = true, refreshInterval = 5000 }) {
+export function AdminQueueMonitor({ clinicId, autoRefresh = true, refreshInterval = 15000 }) {
     const [queueData, setQueueData] = useState(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)

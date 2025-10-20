@@ -108,26 +108,8 @@ function App() {
       }
     } catch { }
 
-    // إن لم يتصل SSE سريعًا، نفّذ محاكاة إشعارات للتجربة فقط
-    const simulateIfOffline = setTimeout(() => {
-      if (!connected) {
-        fallbackTimers.push(setTimeout(() => {
-          const msg = language === 'ar' ? 'اقترب دورك' : 'Near your turn'
-          setNotif(msg)
-          showNotification(msg, 'info')
-          playNotificationSound()
-        }, 5000))
-        fallbackTimers.push(setTimeout(() => {
-          const msg = language === 'ar' ? 'دورك الآن' : 'Your turn now'
-          setNotif(msg)
-          showNotification(msg, 'success')
-          playNotificationSound()
-        }, 10000))
-      }
-    }, 2000)
+    // Cleanup on unmount
     return () => {
-      clearTimeout(simulateIfOffline)
-      fallbackTimers.forEach(t => clearTimeout(t))
       try { es && es.close() } catch { }
     }
   }, [language])

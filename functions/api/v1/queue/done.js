@@ -48,20 +48,22 @@ export async function onRequestPost(context) {
     }
     
     // Get today's PIN for this clinic
-    const pinKey = `pins:daily:${new Date().toISOString().split('T')[0]}`;
+    // Get current date in Qatar timezone
+    const now = new Date();
+    const qatarTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Qatar' }));
+    const today = qatarTime.toISOString().split('T')[0];
+    const pinKey = `pins:daily:${today}`;
     const dailyPins = await env.KV_PINS.get(pinKey, 'json');
     
-    if (!dailyPins || !dailyPins.pins || !dailyPins.pins[clinic]) {
+    if (!dailyPins || !dailyPins[clinic]) {
       return jsonResponse({
         success: false,
         error: 'PIN not configured for this clinic'
       }, 500);
     }
     
-    // Extract PIN value (handle both string and object formats)
-    const expectedPin = typeof dailyPins.pins[clinic] === 'object' 
-      ? dailyPins.pins[clinic].pin 
-      : dailyPins.pins[clinic];
+    // Extract PIN value (dailyPins is the pins object directly)
+    const expectedPin = dailyPins[clinic];
     
     // Verify PIN matches
     if (String(pin).trim() !== String(expectedPin).trim()) {

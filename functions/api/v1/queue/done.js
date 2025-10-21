@@ -33,7 +33,7 @@ export async function onRequest(context) {
     
     // Get daily PINs
     const today = new Date().toISOString().split('T')[0];
-    const pinsKey = `daily_pins:${today}`;
+    const pinsKey = `pins:daily:${today}`;
     const dailyPins = await kv.get(pinsKey, 'json');
     
     if (!dailyPins) {

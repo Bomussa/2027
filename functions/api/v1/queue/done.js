@@ -48,7 +48,7 @@ export async function onRequestPost(context) {
     }
     
     // Get today's PIN for this clinic
-    const pinKey = `pin:daily:${new Date().toISOString().split('T')[0]}`;
+    const pinKey = `pins:daily:${new Date().toISOString().split('T')[0]}`;
     const dailyPins = await env.KV_PINS.get(pinKey, 'json');
     
     if (!dailyPins || !dailyPins.pins || !dailyPins.pins[clinic]) {

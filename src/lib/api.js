@@ -20,6 +20,20 @@ function resolveApiBases() {
 const API_BASES = resolveApiBases()
 
 class ApiService {
+  constructor() {
+    // Auto-sync offline queue when online
+    if (typeof window !== 'undefined') {
+      window.addEventListener('online', () => {
+        console.log('🌐 Connection restored - syncing offline queue...')
+        this.syncOfflineQueue()
+      })
+      
+      // Sync on page load if online
+      if (navigator.onLine) {
+        setTimeout(() => this.syncOfflineQueue(), 1000)
+      }
+    }
+  }
   async request(endpoint, options = {}) {
     const config = {
       headers: {
@@ -58,27 +72,79 @@ class ApiService {
   }
 
   offlineFallback(endpoint, options = {}) {
-    // OFFLINE FALLBACK - Only when internet connection fails
-    // CRITICAL RULES:
-    // 1. NO write operations (POST/PUT/DELETE) - EVER
-    // 2. NO data storage in localStorage
-    // 3. NO mock data that could conflict with backend
-    // 4. ONLY return error messages for user awareness
+    // OFFLINE QUEUE SYSTEM
+    // When connection fails:
+    // 1. Store operation in localStorage temporarily
+    // 2. Return pending status to user
+    // 3. Auto-sync when connection restored
     
     try {
       const method = (options.method || 'GET').toUpperCase()
       
-      // BLOCK ALL write operations - require internet
+      // For write operations, queue them for later sync
       if (method === 'POST' || method === 'PUT' || method === 'DELETE') {
-        return { ok: false }
+        this.queueOfflineOperation(endpoint, options)
+        return {
+          ok: true,
+          data: {
+            success: true,
+            offline: true,
+            queued: true,
+            message: 'تم حفظ العملية مؤقتاً - سيتم الإرسال عند عودة الاتصال'
+          }
+        }
       }
       
-      // For read operations, return offline status only
-      // NO mock data to prevent conflicts
+      // For read operations, return offline status
       return { ok: false }
       
     } catch (e) {
       return { ok: false }
+    }
+  }
+
+  queueOfflineOperation(endpoint, options) {
+    try {
+      const queue = JSON.parse(localStorage.getItem('mms.offlineQueue') || '[]')
+      queue.push({
+        id: Date.now() + Math.random(),
+        endpoint,
+        options,
+        timestamp: new Date().toISOString()
+      })
+      localStorage.setItem('mms.offlineQueue', JSON.stringify(queue))
+    } catch (e) {
+      console.error('Failed to queue offline operation:', e)
+    }
+  }
+
+  async syncOfflineQueue() {
+    try {
+      const queue = JSON.parse(localStorage.getItem('mms.offlineQueue') || '[]')
+      if (queue.length === 0) return
+
+      console.log(`🔄 Syncing ${queue.length} offline operations...`)
+      
+      const remaining = []
+      for (const op of queue) {
+        try {
+          await this.request(op.endpoint, op.options)
+          console.log(`✅ Synced: ${op.endpoint}`)
+        } catch (e) {
+          console.error(`❌ Failed to sync: ${op.endpoint}`, e)
+          remaining.push(op)
+        }
+      }
+      
+      localStorage.setItem('mms.offlineQueue', JSON.stringify(remaining))
+      
+      if (remaining.length === 0) {
+        console.log('✅ All offline operations synced successfully')
+      } else {
+        console.log(`⚠️ ${remaining.length} operations still pending`)
+      }
+    } catch (e) {
+      console.error('Sync error:', e)
     }
   }
 

@@ -8,6 +8,7 @@ import { t } from '../lib/i18n'
 import api from '../lib/api'
 import enhancedApi from '../lib/enhanced-api'
 import { ZFDTicketDisplay, ZFDBanner } from './ZFDTicketDisplay'
+import NotificationSystem from './NotificationSystem'
 
 export function PatientPage({ patientData, onLogout, language, toggleLanguage }) {
   const [stations, setStations] = useState([])
@@ -205,6 +206,16 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
         <ZFDBanner
           notice={currentNotice}
           onDismiss={() => setCurrentNotice(null)}
+        />
+      )}
+
+      {/* نظام الإشعارات اللحظية */}
+      {stations.find(s => s.status === 'active') && (
+        <NotificationSystem
+          patientId={patientData?.id}
+          currentClinic={stations.find(s => s.status === 'active')}
+          yourNumber={stations.find(s => s.status === 'active')?.yourNumber}
+          currentServing={stations.find(s => s.status === 'active')?.current}
         />
       )}
 

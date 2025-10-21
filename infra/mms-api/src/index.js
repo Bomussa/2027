@@ -3,6 +3,8 @@
  * Full Backend API with KV Storage
  */
 
+import { generateDailyReport, generateWeeklyReport, generateMonthlyReport, generateAnnualReport } from './reports.js';
+
 // ==========================================
 // CORS Headers
 // ==========================================
@@ -206,7 +208,9 @@ async function handleQueueStatus(url, env) {
       clinic: clinic,
       list: queueData,
       current_serving: status.current,
-      total_waiting: queueData.length
+      total_waiting: queueData.length,
+      current: status.current,
+      waiting: queueData.length
     });
 
   } catch (error) {
@@ -639,6 +643,32 @@ async function handleRequest(request, env) {
 
   if (path === '/api/v1/events/stream') {
     return handleSSE(url, env, ctx);
+  }
+
+  // Reports endpoints
+  if (path === '/api/v1/reports/daily') {
+    const date = url.searchParams.get('date') ? new Date(url.searchParams.get('date')) : new Date();
+    const report = await generateDailyReport(env, date);
+    return jsonResponse({ success: true, report });
+  }
+
+  if (path === '/api/v1/reports/weekly') {
+    const weekStart = url.searchParams.get('week') ? new Date(url.searchParams.get('week')) : new Date();
+    const report = await generateWeeklyReport(env, weekStart);
+    return jsonResponse({ success: true, report });
+  }
+
+  if (path === '/api/v1/reports/monthly') {
+    const year = parseInt(url.searchParams.get('year')) || new Date().getFullYear();
+    const month = parseInt(url.searchParams.get('month')) || new Date().getMonth() + 1;
+    const report = await generateMonthlyReport(env, year, month);
+    return jsonResponse({ success: true, report });
+  }
+
+  if (path === '/api/v1/reports/annual') {
+    const year = parseInt(url.searchParams.get('year')) || new Date().getFullYear();
+    const report = await generateAnnualReport(env, year);
+    return jsonResponse({ success: true, report });
   }
 
   // 404 for unknown routes

@@ -22,8 +22,45 @@ function mapClinicCodes(codes) {
   }).filter(Boolean)
 }
 
+// جلب أوزان العيادات (عدد المنتظرين) من API
+async function fetchClinicWeights(clinicIds) {
+  const weights = {}
+  
+  try {
+    const promises = clinicIds.map(async (clinicId) => {
+      try {
+        const response = await fetch(`/api/v1/queue/status?clinic=${clinicId}`)
+        const data = await response.json()
+        
+        if (data.success) {
+          weights[clinicId] = data.total_waiting || data.waiting || 0
+        } else {
+          weights[clinicId] = 0
+        }
+      } catch (err) {
+        weights[clinicId] = 0
+      }
+    })
+    
+    await Promise.all(promises)
+  } catch (err) {
+    console.error('Failed to fetch clinic weights:', err)
+  }
+  
+  return weights
+}
+
+// ترتيب العيادات حسب الأوزان (الفارغة أولاً)
+function sortClinicsByWeight(clinics, weights) {
+  return [...clinics].sort((a, b) => {
+    const weightA = weights[a.id] || 0
+    const weightB = weights[b.id] || 0
+    return weightA - weightB
+  })
+}
+
 // الحصول على المسار الطبي حسب نوع الفحص والجنس
-export function getDynamicMedicalPathway(examType, gender) {
+export async function getDynamicMedicalPathway(examType, gender) {
   // تحويل examType من الإنجليزية إلى العربية
   const examTypeMap = {
     'recruitment': 'تجنيد',
@@ -44,19 +81,32 @@ export function getDynamicMedicalPathway(examType, gender) {
     return []
   }
   
-  // إذا كان المسار كائن (مثل نساء/عام)
+  // الحصول على رموز العيادات
+  let codes = []
   if (typeof route === 'object' && !Array.isArray(route)) {
     const genderKey = gender === 'female' ? 'F' : 'M'
-    const codes = route[genderKey] || route.M || []
-    return mapClinicCodes(codes)
+    codes = route[genderKey] || route.M || []
+  } else if (Array.isArray(route)) {
+    codes = route
   }
   
-  // إذا كان المسار مصفوفة بسيطة
-  if (Array.isArray(route)) {
-    return mapClinicCodes(route)
+  if (codes.length === 0) {
+    return []
   }
   
-  return []
+  // تحويل الرموز إلى كائنات عيادات
+  const clinics = mapClinicCodes(codes)
+  
+  if (clinics.length === 0) {
+    return []
+  }
+  
+  // جلب أوزان العيادات وترتيبها
+  const clinicIds = clinics.map(c => c.id)
+  const weights = await fetchClinicWeights(clinicIds)
+  const sortedClinics = sortClinicsByWeight(clinics, weights)
+  
+  return sortedClinics
 }
 
 export default getDynamicMedicalPathway

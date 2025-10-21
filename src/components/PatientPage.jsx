@@ -49,26 +49,44 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
   }, [])
 
   useEffect(() => {
-    // Get stations for the patient's exam type and gender
-    const examStations = getDynamicMedicalPathway(patientData.queueType, patientData.gender)
-    
-    // الدخول التلقائي للعيادة الأولى
-    const initialStations = examStations.map((station, index) => ({
-      ...station,
-      status: index === 0 ? 'ready' : 'locked',
-      current: 0,
-      yourNumber: 0,
-      ahead: 0,
-      isEntered: false
-    }))
-    
-    setStations(initialStations)
-    
-    // دخول تلقائي للعيادة الأولى
-    if (examStations.length > 0) {
-      const firstClinic = examStations[0]
-      handleAutoEnterFirstClinic(firstClinic)
+    // Get stations for the patient's exam type and gender with dynamic weighting
+    const loadPathway = async () => {
+      try {
+        const examStations = await getDynamicMedicalPathway(patientData.queueType, patientData.gender)
+        
+        // الدخول التلقائي للعيادة الأولى
+        const initialStations = examStations.map((station, index) => ({
+          ...station,
+          status: index === 0 ? 'ready' : 'locked',
+          current: 0,
+          yourNumber: 0,
+          ahead: 0,
+          isEntered: false
+        }))
+        
+        setStations(initialStations)
+        
+        // دخول تلقائي للعيادة الأولى
+        if (examStations.length > 0) {
+          const firstClinic = examStations[0]
+          await handleAutoEnterFirstClinic(firstClinic)
+          
+          // إشعار الطابق عند البداية
+          if (firstClinic.floor) {
+            setCurrentNotice({
+              type: 'floor_guide',
+              message: `📍 يرجى التوجه إلى ${firstClinic.floor}`,
+              clinic: firstClinic.nameAr
+            })
+            setTimeout(() => setCurrentNotice(null), 8000)
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load pathway:', err)
+      }
     }
+    
+    loadPathway()
   }, [patientData.queueType, patientData.gender])
 
   // دخول تلقائي للعيادة الأولى

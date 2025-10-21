@@ -1,0 +1,140 @@
+
+:root{
+  /* Rhythm (8pt grid) */
+  --grid: 8px;
+  --rhythm-1: calc(var(--grid) * 1);  /* 8  */
+  --rhythm-2: calc(var(--grid) * 1.5);/* 12 */
+  --rhythm-3: calc(var(--grid) * 2);  /* 16 */
+  --rhythm-4: calc(var(--grid) * 3);  /* 24 */
+  --rhythm-5: calc(var(--grid) * 4);  /* 32 */
+  --rhythm-6: calc(var(--grid) * 6);  /* 48 */
+
+  /* Typography scale + line-heights tuned for Arabic */
+  --font-ar: 'Noto Naskh Arabic', 'Segoe UI', Tahoma, Arial, sans-serif;
+  --font-en: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
+  --fs-12: 12px; --lh-12: 18px;
+  --fs-14: 14px; --lh-14: 20px;
+  --fs-16: 16px; --lh-16: 22px;
+  --fs-18: 18px; --lh-18: 24px;
+  --fs-20: 20px; --lh-20: 26px;
+  --fs-24: 24px; --lh-24: 30px;
+  --tracking-tight: -0.005em;
+  --tracking-normal: 0;
+
+  /* Iconography */
+  --icon: 20px;
+  --icon-sm: 16px;
+  --icon-lg: 24px;
+  --icon-pad: 10px; /* optical padding around glyphs */
+
+  /* Touch target */
+  --hit-min: 44px;
+
+  /* Colors (neutral + medical) */
+  --c-bg: #F8FAFC;
+  --c-surface: #FFFFFF;
+  --c-border: #E2E8F0;
+  --c-text: #0F172A;
+  --c-muted: #475569;
+  --c-primary: #2563EB;
+  --c-primary-strong: #1D4ED8;
+  --c-success: #17B26A;
+  --c-warning: #F79009;
+  --c-error: #D92D20;
+
+  /* Elevation */
+  --shadow-sm: 0 1px 2px rgba(16,24,40,.06);
+  --shadow-md: 0 8px 24px rgba(16,24,40,.10);
+
+  /* Motion */
+  --ease: cubic-bezier(0.2, 0, 0, 1);
+  --t-fast: 120ms;
+  --t-base: 180ms;
+}
+
+html[dir="rtl"] body, body[dir="rtl"]{ direction: rtl; }
+html, body { background: var(--c-bg); color: var(--c-text); font-family: var(--font-ar); }
+
+/* Optical alignment utilities */
+.optical-center { display: grid; place-items: center; }
+.baseline { line-height: var(--lh-16); }
+
+/* Numerics alignment (PINs, KPIs) */
+.tabular { font-variant-numeric: tabular-nums; }
+
+/* Focus ring unified */
+:where(button,[role="button"],a,input,select,textarea):focus-visible{
+  outline: 3px solid color-mix(in oklab, var(--c-primary) 35%, white);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+/* Cards & layout */
+.container{ max-width: 1100px; margin-inline: auto; padding: var(--rhythm-5) var(--rhythm-4); }
+.card{ background: var(--c-surface); border:1px solid var(--c-border); border-radius: 14px; box-shadow: var(--shadow-sm); padding: var(--rhythm-4); }
+.row{ display:flex; gap: var(--rhythm-3); align-items: center; flex-wrap: wrap; }
+.grid{ display:grid; gap: var(--rhythm-3); }
+.grid.cols-2{ grid-template-columns: 1fr 1fr; }
+.grid.cols-3{ grid-template-columns: repeat(3, 1fr); }
+
+/* Buttons with icon label alignment */
+.btn{
+  min-block-size: var(--hit-min);
+  padding: 0 calc(var(--rhythm-4));
+  display: inline-grid;
+  grid-auto-flow: column;
+  grid-auto-columns: max-content;
+  align-items: center;
+  gap: var(--rhythm-3);
+  border-radius: 12px;
+  background: var(--c-primary);
+  color: #fff;
+  font-weight: 700;
+  letter-spacing: var(--tracking-tight);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--t-fast) var(--ease), box-shadow var(--t-base) var(--ease), background var(--t-base) var(--ease);
+}
+.btn:hover{ transform: translateY(-1px); box-shadow: var(--shadow-md); background: var(--c-primary-strong); }
+.btn:active{ transform: scale(.98); }
+.btn.secondary{ background: #fff; color: var(--c-text); border:1px solid var(--c-border); }
+.btn .icon{ inline-size: var(--icon); block-size: var(--icon); display:inline-grid; place-items:center; }
+.btn .icon > svg{ inline-size: 100%; block-size: 100%; }
+
+/* Icon-only button with optical padding */
+.icon-btn{
+  inline-size: var(--hit-min); block-size: var(--hit-min);
+  display:grid; place-items:center;
+  border-radius: 12px;
+  border:1px solid var(--c-border);
+  background: #fff;
+  transition: background var(--t-base) var(--ease), box-shadow var(--t-base) var(--ease), transform var(--t-fast) var(--ease);
+}
+.icon-btn:hover{ background: color-mix(in oklab, var(--c-primary) 6%, white); box-shadow: var(--shadow-sm); }
+.icon-btn:active{ transform: scale(.98); }
+.icon-btn svg{ inline-size: var(--icon-lg); block-size: var(--icon-lg); }
+
+/* IconBadge (numbers inside shapes) */
+.icon-badge{
+  inline-size: 28px; block-size: 28px; border-radius: 999px;
+  display:grid; place-items:center;
+  background: var(--c-primary); color: #fff;
+  font-size: 14px; line-height: 1; font-weight: 800; letter-spacing: .01em;
+}
+.icon-badge.tabular{ font-variant-numeric: tabular-nums; }
+
+/* Inputs with perfect text baseline */
+.field{ display:grid; gap: var(--rhythm-2); }
+.field label{ font-size: var(--fs-14); line-height: var(--lh-14); font-weight: 700; color: var(--c-text); }
+.input{
+  min-block-size: var(--hit-min);
+  padding-inline: var(--rhythm-4);
+  border:1px solid var(--c-border); border-radius: 12px;
+  background:#fff; color: var(--c-text);
+  font-size: var(--fs-16); line-height: var(--lh-16);
+  transition: border var(--t-fast) var(--ease), box-shadow var(--t-fast) var(--ease);
+}
+.input:hover{ border-color: color-mix(in oklab, var(--c-primary) 20%, var(--c-border)); }
+.input:focus{ border-color: var(--c-primary); box-shadow: 0 0 0 3px color-mix(in oklab, var(--c-primary) 25%, white); outline: none; }
+
+.h1{ font-size: var(--fs-24); line-height: var(--lh-24); margin: 0 0 var(--rhythm-3); }
+.p{  font-size: var(--fs-16); line-height: var(--lh-16); color: var(--c-muted); margin: 0 0 var(--rhythm-3); }

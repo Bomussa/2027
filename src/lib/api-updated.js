@@ -179,36 +179,28 @@ class ApiService {
     return this.request('/api/v1/health/status')
   }
 
-  // SSE Connection for real-time updates (disabled - using polling instead)
+  // SSE Connection for real-time updates
   connectEventSource(clinic, user = null) {
-    console.log('SSE is disabled, using polling instead')
-    // Return a mock object that won't cause errors
-    return {
-      addEventListener: () => {},
-      close: () => {},
-      readyState: 0
-    }
-  }
-
-  // Polling mechanism for queue updates
-  startPolling(clinic, user, callback, interval = 5000) {
-    const poll = async () => {
-      try {
-        const status = await this.getPatientStatus(clinic, user)
-        callback(status)
-      } catch (error) {
-        console.error('Polling error:', error)
-      }
-    }
+    const params = new URLSearchParams({ clinic })
+    if (user) params.append('user', user)
     
-    // Initial poll
-    poll()
+    const url = `${API_BASE}/api/v1/events/stream?${params.toString()}`
+    const eventSource = new EventSource(url)
     
-    // Set up interval
-    const intervalId = setInterval(poll, interval)
+    eventSource.addEventListener('open', () => {
+      console.log('SSE Connection opened')
+    })
     
-    // Return cleanup function
-    return () => clearInterval(intervalId)
+    eventSource.addEventListener('error', (error) => {
+      console.error('SSE Error:', error)
+      eventSource.close()
+      // Reconnect after 5 seconds
+      setTimeout(() => {
+        this.connectEventSource(clinic, user)
+      }, 5000)
+    })
+    
+    return eventSource
   }
 
   // Legacy WebSocket connection (kept for compatibility)

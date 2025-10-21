@@ -13,7 +13,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
   const [selectedStation, setSelectedStation] = useState(null)
   const [loading, setLoading] = useState(false)
   const [queueStatus, setQueueStatus] = useState(null)
-  const pollingCleanupRef = useRef(null)
+  const eventSourceRef = useRef(null)
 
   useEffect(() => {
     // Get stations for the patient's exam type and gender
@@ -26,66 +26,92 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
       ahead: 0
     })))
 
-    // Start polling for real-time updates
-    startPollingUpdates()
+    // Connect to SSE for real-time updates
+    connectToSSE()
 
     // Cleanup on unmount
     return () => {
-      if (pollingCleanupRef.current) {
-        pollingCleanupRef.current()
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close()
       }
     }
   }, [patientData.queueType, patientData.gender])
 
-  const startPollingUpdates = () => {
+  const connectToSSE = () => {
     try {
-      // Stop existing polling if any
-      if (pollingCleanupRef.current) {
-        pollingCleanupRef.current()
+      // Close existing connection if any
+      if (eventSourceRef.current) {
+        eventSourceRef.current.close()
       }
 
       // Use the clinic from queueType and user from patientId
       const clinic = patientData.queueType || 'general'
       const user = patientData.patientId || patientData.id
 
-      // Start polling with callback
-      const cleanup = api.startPolling(clinic, user, (data) => {
-        console.log('Queue status update:', data)
-        
-        // Update stations with queue data
-        if (data && data.current !== undefined) {
-          updateStationsWithQueueData(data)
+      const eventSource = api.connectEventSource(clinic, user)
+      eventSourceRef.current = eventSource
+
+      eventSource.addEventListener('message', (event) => {
+        try {
+          const data = JSON.parse(event.data)
+          console.log('SSE Event:', data)
           
-          // Check if it's patient's turn or near turn
-          const yourNumber = data.number || 1
-          const current = data.current || 0
-          const ahead = yourNumber - current
-          
-          if (ahead === 0) {
-            setQueueStatus({
-              type: 'YOUR_TURN',
-              message: language === 'ar' ? 'حان دورك! توجه إلى العيادة' : "It's your turn! Go to the clinic",
-              current: current,
-              yourNumber: yourNumber
-            })
-          } else if (ahead > 0 && ahead <= 2) {
-            setQueueStatus({
-              type: 'NEAR_TURN',
-              message: language === 'ar' ? `قريباً دورك - ${ahead} شخص أمامك` : `Almost your turn - ${ahead} ahead`,
-              current: current,
-              yourNumber: yourNumber,
-              ahead: ahead
-            })
-          } else if (ahead < 0) {
-            setQueueStatus(null) // Clear status if already passed
+          // Update queue status based on event type
+          switch (data.type) {
+            case 'CONNECTED':
+              console.log('Connected to SSE stream')
+              break
+            
+            case 'YOUR_TURN':
+              // It's the patient's turn
+              setQueueStatus({
+                type: 'YOUR_TURN',
+                message: language === 'ar' ? 'حان دورك! توجه إلى العيادة' : "It's your turn! Go to the clinic",
+                current: data.current,
+                yourNumber: data.number
+              })
+              break
+            
+            case 'NEAR_TURN':
+              // Patient is near their turn (1-2 ahead)
+              setQueueStatus({
+                type: 'NEAR_TURN',
+                message: language === 'ar' ? `قريباً دورك - ${data.ahead} شخص أمامك` : `Almost your turn - ${data.ahead} ahead`,
+                current: data.current,
+                yourNumber: data.number,
+                ahead: data.ahead
+              })
+              break
+            
+            case 'STEP_DONE_NEXT':
+              // Current step is done, move to next
+              setQueueStatus({
+                type: 'STEP_DONE_NEXT',
+                message: language === 'ar' ? 'تم إنهاء المرحلة، انتقل للمرحلة التالية' : 'Step completed, move to next step',
+                status: data.status
+              })
+              break
+            
+            case 'QUEUE_UPDATE':
+              // General queue update
+              updateStationsWithQueueData(data)
+              break
+            
+            default:
+              console.log('Unknown event type:', data.type)
           }
+        } catch (error) {
+          console.error('Error parsing SSE data:', error)
         }
-      }, 5000) // Poll every 5 seconds
-      
-      pollingCleanupRef.current = cleanup
+      })
+
+      eventSource.addEventListener('error', (error) => {
+        console.error('SSE Connection error:', error)
+        // Will auto-reconnect via api.js
+      })
 
     } catch (error) {
-      console.error('Error starting polling:', error)
+      console.error('Error connecting to SSE:', error)
     }
   }
 

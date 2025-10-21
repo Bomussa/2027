@@ -1,7 +1,7 @@
 import React from 'react'
 import { cn } from '../lib/utils'
 
-const Button = React.forwardRef(({ className, variant = "default", size = "default", ...props }, ref) => {
+const Button = React.forwardRef(({ className, variant = "default", size = "default", icon, children, ...props }, ref) => {
   const variants = {
     default: "bg-primary text-primary-foreground hover:bg-primary/90",
     destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
@@ -30,10 +30,58 @@ const Button = React.forwardRef(({ className, variant = "default", size = "defau
       )}
       ref={ref}
       {...props}
-    />
+    >
+      {icon && <span className="inline-flex items-center justify-center" style={{marginInlineEnd: children ? '0.5rem' : '0'}}>{icon}</span>}
+      {children && <span className="baseline">{children}</span>}
+    </button>
   )
 })
 
 Button.displayName = "Button"
 
-export { Button }
+// IconButton component for icon-only buttons with enhanced touch target
+const IconButton = React.forwardRef(({ className, icon, label, ...props }, ref) => {
+  return (
+    <button
+      className={cn(
+        "icon-btn inline-flex items-center justify-center",
+        className
+      )}
+      aria-label={label}
+      ref={ref}
+      {...props}
+    >
+      <span className="optical-center">{icon}</span>
+    </button>
+  )
+})
+
+IconButton.displayName = "IconButton"
+
+// IconBadge component for displaying numbers in badges
+const IconBadge = ({ value, tabular = true, className }) => {
+  return (
+    <span className={cn("icon-badge", tabular && "tabular", className)}>
+      {value}
+    </span>
+  )
+}
+
+// StatTile component for displaying KPIs
+const StatTile = ({ label, value, icon, className }) => {
+  return (
+    <div className={cn("card", className)} style={{display:'grid', gridTemplateColumns: icon?'auto 1fr':'1fr', gap:'12px', alignItems:'center'}}>
+      {icon && (
+        <div className="optical-center" style={{inlineSize:'36px', blockSize:'36px', borderRadius:'10px', background:'color-mix(in oklab, var(--c-primary) 12%, white)', color:'var(--c-primary)'}}>
+          {icon}
+        </div>
+      )}
+      <div>
+        <div className="p" style={{margin:0, fontSize: '0.875rem', color: 'var(--c-muted)'}}>{label}</div>
+        <div className="tabular" style={{fontSize:'1.5rem', fontWeight:800, letterSpacing:'.01em'}}>{value}</div>
+      </div>
+    </div>
+  )
+}
+
+export { Button, IconButton, IconBadge, StatTile }

@@ -35,9 +35,6 @@ export const translations = {
     unlock: 'فتح',
     exitSystem: 'الخروج من النظام',
     enterPIN: 'أدخل رقم PIN',
-  enterClinic: 'دخول العيادة',
-  exitClinic: 'الخروج من العيادة',
-  ticketNumber: 'رقم الدور',
     
     // Clinics
     laboratory: 'المختبر',
@@ -83,7 +80,6 @@ export const translations = {
     waiting: 'في الانتظار',
     completed: 'مكتمل',
     avgWaitTime: 'متوسط وقت الانتظار',
-    noReports: 'لا توجد تقارير متاحة',
     
     // Themes
     classic: 'كلاسيكي',
@@ -132,9 +128,6 @@ export const translations = {
     unlock: 'Unlock',
     exitSystem: 'Exit System',
     enterPIN: 'Enter PIN',
-  enterClinic: 'Enter Clinic',
-  exitClinic: 'Exit Clinic',
-  ticketNumber: 'Ticket Number',
     
     // Clinics
     laboratory: 'Laboratory',
@@ -180,7 +173,6 @@ export const translations = {
     waiting: 'Waiting',
     completed: 'Completed',
     avgWaitTime: 'Avg Wait Time',
-    noReports: 'No reports available',
     
     // Themes
     classic: 'Classic',

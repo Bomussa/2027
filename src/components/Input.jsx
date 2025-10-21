@@ -17,4 +17,29 @@ const Input = React.forwardRef(({ className, type, pattern, ...props }, ref) => 
 })
 Input.displayName = "Input"
 
-export { Input }
+// FormField component for enhanced form inputs with labels and hints
+const FormField = ({ label, hint, error, children, className }) => {
+  const id = React.useId()
+  const child = React.isValidElement(children) 
+    ? React.cloneElement(children, { 
+        id, 
+        className: cn("input", children.props?.className || '')
+      }) 
+    : children
+  
+  return (
+    <div className={cn("field", className)}>
+      <label htmlFor={id} style={{fontSize: '0.875rem', fontWeight: 700, color: 'var(--c-text)'}}>{label}</label>
+      {child}
+      <div style={{display:'flex', gap:'8px', minHeight:'20px'}}>
+        {error ? (
+          <span style={{color:'var(--c-error)', fontSize:'12px'}}>• {error}</span>
+        ) : hint ? (
+          <span style={{color:'var(--c-muted)', fontSize:'12px'}}>{hint}</span>
+        ) : null}
+      </div>
+    </div>
+  )
+}
+
+export { Input, FormField }

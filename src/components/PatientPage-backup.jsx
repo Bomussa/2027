@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from './Card'
 import { Button } from './Button'
 import { Input } from './Input'
@@ -12,8 +12,6 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
   const [pinInput, setPinInput] = useState('')
   const [selectedStation, setSelectedStation] = useState(null)
   const [loading, setLoading] = useState(false)
-  const [queueStatus, setQueueStatus] = useState(null)
-  const pollingCleanupRef = useRef(null)
 
   useEffect(() => {
     // Get stations for the patient's exam type and gender
@@ -25,83 +23,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
       yourNumber: index === 0 ? 1 : 0,
       ahead: 0
     })))
-
-    // Start polling for real-time updates
-    startPollingUpdates()
-
-    // Cleanup on unmount
-    return () => {
-      if (pollingCleanupRef.current) {
-        pollingCleanupRef.current()
-      }
-    }
   }, [patientData.queueType, patientData.gender])
-
-  const startPollingUpdates = () => {
-    try {
-      // Stop existing polling if any
-      if (pollingCleanupRef.current) {
-        pollingCleanupRef.current()
-      }
-
-      // Use the clinic from queueType and user from patientId
-      const clinic = patientData.queueType || 'general'
-      const user = patientData.patientId || patientData.id
-
-      // Start polling with callback
-      const cleanup = api.startPolling(clinic, user, (data) => {
-        console.log('Queue status update:', data)
-        
-        // Update stations with queue data
-        if (data && data.current !== undefined) {
-          updateStationsWithQueueData(data)
-          
-          // Check if it's patient's turn or near turn
-          const yourNumber = data.number || 1
-          const current = data.current || 0
-          const ahead = yourNumber - current
-          
-          if (ahead === 0) {
-            setQueueStatus({
-              type: 'YOUR_TURN',
-              message: language === 'ar' ? 'حان دورك! توجه إلى العيادة' : "It's your turn! Go to the clinic",
-              current: current,
-              yourNumber: yourNumber
-            })
-          } else if (ahead > 0 && ahead <= 2) {
-            setQueueStatus({
-              type: 'NEAR_TURN',
-              message: language === 'ar' ? `قريباً دورك - ${ahead} شخص أمامك` : `Almost your turn - ${ahead} ahead`,
-              current: current,
-              yourNumber: yourNumber,
-              ahead: ahead
-            })
-          } else if (ahead < 0) {
-            setQueueStatus(null) // Clear status if already passed
-          }
-        }
-      }, 5000) // Poll every 5 seconds
-      
-      pollingCleanupRef.current = cleanup
-
-    } catch (error) {
-      console.error('Error starting polling:', error)
-    }
-  }
-
-  const updateStationsWithQueueData = (data) => {
-    // Update stations with real-time queue data
-    setStations(prev => prev.map((station, index) => {
-      if (index === 0) {
-        return {
-          ...station,
-          current: data.current || 0,
-          ahead: Math.max(0, (station.yourNumber || 1) - (data.current || 0))
-        }
-      }
-      return station
-    }))
-  }
 
   const handleUnlock = async () => {
     if (!selectedStation || !pinInput.trim()) return
@@ -119,7 +41,6 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
       setSelectedStation(null)
     } catch (error) {
       console.error('Unlock error:', error)
-      alert(language === 'ar' ? 'رقم PIN غير صحيح' : 'Invalid PIN')
     } finally {
       setLoading(false)
     }
@@ -165,21 +86,6 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
             </p>
           </div>
         </div>
-
-        {/* Queue Status Alert */}
-        {queueStatus && (
-          <Card className={`border-2 ${
-            queueStatus.type === 'YOUR_TURN' ? 'bg-green-500/20 border-green-500' :
-            queueStatus.type === 'NEAR_TURN' ? 'bg-yellow-500/20 border-yellow-500' :
-            'bg-blue-500/20 border-blue-500'
-          }`}>
-            <CardContent className="p-4">
-              <p className="text-white text-center font-semibold text-lg">
-                {queueStatus.message}
-              </p>
-            </CardContent>
-          </Card>
-        )}
 
         {/* Medical Route */}
         <Card className="bg-gray-800/50 border-gray-700">
@@ -293,4 +199,3 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     </div>
   )
 }
-

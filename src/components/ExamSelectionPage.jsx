@@ -7,30 +7,30 @@ import { t } from '../lib/i18n'
 
 export function ExamSelectionPage({ onExamSelect, onBack, language, toggleLanguage }) {
   return (
-    <div className="min-h-screen flex items-center justify-center p-4" data-test="exam-selection-page">
+    <div className="min-h-screen flex items-center justify-center p-4">
       <div className="w-full max-w-4xl space-y-8">
         {/* Language Selector */}
-        <div className="absolute top-4 left-4">
+        <div className="absolute top-4 right-4">
           <Button
             variant="ghost"
             size="sm"
             className="text-gray-300 hover:text-white hover:bg-gray-800/50"
             onClick={toggleLanguage}
           >
-            <Globe className="icon icon-md me-2" />
+            <Globe className="w-4 h-4 mr-2" />
             {language === 'ar' ? 'English 🇺🇸' : 'العربية 🇶🇦'}
           </Button>
         </div>
 
         {/* Back Button */}
-        <div className="absolute top-4 right-4">
+        <div className="absolute top-4 left-4">
           <Button
             variant="ghost"
             size="sm"
             className="text-gray-300 hover:text-white hover:bg-gray-800/50"
             onClick={onBack}
           >
-            <ArrowLeft className="icon icon-md me-2" />
+            <ArrowLeft className="w-4 h-4 mr-2" />
             {language === 'ar' ? 'رجوع' : 'Back'}
           </Button>
         </div>
@@ -38,7 +38,7 @@ export function ExamSelectionPage({ onExamSelect, onBack, language, toggleLangua
         {/* Logo and Title */}
         <div className="text-center space-y-4">
           <img src="/logo.jpeg" alt="قيادة الخدمات الطبية" className="mx-auto w-32 h-32 rounded-full shadow-lg" />
-
+          
           <div>
             <h1 className="text-3xl font-bold text-white">
               {language === 'ar' ? 'قيادة الخدمات الطبية' : 'Medical Services Command'}
@@ -47,7 +47,7 @@ export function ExamSelectionPage({ onExamSelect, onBack, language, toggleLangua
               {language === 'ar' ? 'Medical Services' : 'قيادة الخدمات الطبية'}
             </p>
             <p className="text-gray-400 mt-2">
-              {language === 'ar'
+              {language === 'ar' 
                 ? 'المركز الطبي المتخصص العسكري - العطار - اللجنة الطبية'
                 : 'Military Specialized Medical Center – Al-Attar – Medical Committee'}
             </p>
@@ -68,7 +68,6 @@ export function ExamSelectionPage({ onExamSelect, onBack, language, toggleLangua
                   variant="outline"
                   className="h-32 flex-col gap-3 border-gray-600 hover:bg-gray-700/50 hover:border-yellow-500 transition-all duration-200"
                   onClick={() => onExamSelect(exam.id)}
-                  data-test={`exam-option-${exam.id}`}
                 >
                   <div className="text-3xl">{exam.icon}</div>
                   <div className="text-center">

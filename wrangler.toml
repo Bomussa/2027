@@ -1,4 +1,4 @@
-name = "mmc-mms-2027"
+name = "mmc-mms"
 compatibility_date = "2025-10-18"
 pages_build_output_dir = "dist"
 

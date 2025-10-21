@@ -1,3 +1,6 @@
+/* UI Polish Pro Pack - Micro details for enhanced visual quality */
+@import './micro.css';
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -10,13 +13,13 @@
     --card-foreground: 210 40% 98%; /* White */
     --popover: 220 20% 15%; /* Popover background */
     --popover-foreground: 210 40% 98%; /* Popover text */
-    --primary: 345 76% 32%; /* Official Maroon #8A1538 */
+    --primary: 200 80% 50%; /* Bright Blue */
     --primary-foreground: 210 40% 98%; /* White */
-    --secondary: 43 48% 54%; /* Official Gold #C9A54C */
+    --secondary: 140 60% 40%; /* Green */
     --secondary-foreground: 210 40% 98%; /* White */
     --muted: 220 15% 25%; /* Muted dark blue */
     --muted-foreground: 215 20.2% 65.1%; /* Gray */
-    --accent: 38 40% 82%; /* Light Beige #E8DABE */
+    --accent: 200 80% 50%; /* Accent blue */
     --accent-foreground: 210 40% 98%; /* White */
     --destructive: 0 62.8% 30.6%; /* Red */
     --destructive-foreground: 210 40% 98%; /* White */
@@ -33,36 +36,9 @@
   }
   body {
     @apply bg-background text-foreground;
-    background: linear-gradient(135deg, #8A1538 0%, #6B0F2A 50%, #C9A54C 100%);
+    background: linear-gradient(135deg, #0f0f23 0%, #1a1a2e 50%, #16213e 100%);
     min-height: 100vh;
   }
-}
-
-/* Icon system: أحجام/ألوان/هوامش موحّدة لكل الأيقونات */
-@layer components {
-  /* أحجام الأيقونات */
-  .icon { display: inline-block; vertical-align: middle; }
-  .icon-sm { @apply w-4 h-4; }
-  .icon-md { @apply w-5 h-5; }
-  .icon-lg { @apply w-6 h-6; }
-  .icon-xl { @apply w-8 h-8; }
-
-  /* ألوان الأيقونات وفق الثيم الطبي */
-  .icon-brand { color: var(--theme-primary); }
-  .icon-secondary { color: var(--theme-secondary); }
-  .icon-accent { color: var(--theme-accent); }
-  .icon-muted { @apply text-gray-400; }
-  .icon-success { @apply text-green-500; }
-  .icon-warning { @apply text-yellow-500; }
-  .icon-danger { @apply text-red-500; }
-
-  /* هوامش منطقية تدعم RTL/LTR */
-  .me-1 { margin-inline-end: 0.25rem; }
-  .me-2 { margin-inline-end: 0.5rem; }
-  .me-3 { margin-inline-end: 0.75rem; }
-  .ms-1 { margin-inline-start: 0.25rem; }
-  .ms-2 { margin-inline-start: 0.5rem; }
-  .ms-3 { margin-inline-start: 0.75rem; }
 }
 
 /* Custom gradients for buttons */

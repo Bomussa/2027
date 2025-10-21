@@ -1,13 +1,13 @@
 import React, { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from './Card'
 import { Button } from './Button'
-import {
-  Activity,
-  Users,
-  Clock,
-  TrendingUp,
-  Building2 as Hospital,
-  UserCheck,
+import { 
+  Activity, 
+  Users, 
+  Clock, 
+  TrendingUp, 
+  Building2 as Hospital, 
+  UserCheck, 
   AlertCircle,
   BarChart3,
   Settings,
@@ -33,9 +33,6 @@ import {
 } from 'lucide-react'
 import { t } from '../lib/i18n'
 import api from '../lib/api'
-import AdminQueueMonitor from './AdminQueueMonitor'
-import AdminPINMonitor from './AdminPINMonitor'
-import { AdminQrManager } from './AdminQrManager'
 
 export function EnhancedAdminDashboard({ language, onLogout }) {
   const [stats, setStats] = useState(null)
@@ -50,52 +47,23 @@ export function EnhancedAdminDashboard({ language, onLogout }) {
     try {
       setLoading(true)
       setError(null)
-
-      // جلب الإحصائيات الحقيقية مع fallback
-      try {
-        const statsData = await api.getDashboardStats()
-        setStats(statsData || {
-          currentPatients: 0,
-          completedToday: 0,
-          avgWaitTime: 0,
-          throughputHour: 0
-        })
-      } catch (e) {
-        console.warn('Stats API unavailable, using defaults')
-        setStats({
-          currentPatients: 0,
-          completedToday: 0,
-          avgWaitTime: 0,
-          throughputHour: 0
-        })
-      }
-
-      // جلب بيانات العيادات الحقيقية مع fallback
-      try {
-        const clinicsData = await api.getClinicOccupancy()
-        setClinics(Array.isArray(clinicsData) ? clinicsData : [])
-      } catch (e) {
-        console.warn('Clinics API unavailable, using empty array')
-        setClinics([])
-      }
-
-      // جلب بيانات الطابور الحقيقية مع fallback
-      try {
-        const queueData = await api.getActiveQueue()
-        setQueue(Array.isArray(queueData) ? queueData : [])
-      } catch (e) {
-        console.warn('Queue API unavailable, using empty array')
-        setQueue([])
-      }
-
+      
+      // جلب الإحصائيات الحقيقية
+      const statsData = await api.getDashboardStats()
+      setStats(statsData)
+      
+      // جلب بيانات العيادات الحقيقية
+      const clinicsData = await api.getClinicOccupancy()
+      setClinics(clinicsData)
+      
+      // جلب بيانات الطابور الحقيقية
+      const queueData = await api.getActiveQueue()
+      setQueue(queueData)
+      
       setLastUpdate(new Date())
-      setError(null) // Clear any previous errors
     } catch (err) {
       console.error('خطأ في جلب البيانات:', err)
-      // Don't show error if we have partial data
-      if (!stats) {
-        setError('فشل في تحميل البيانات من الخادم')
-      }
+      setError('فشل في تحميل البيانات من الخادم')
     } finally {
       setLoading(false)
     }
@@ -103,10 +71,10 @@ export function EnhancedAdminDashboard({ language, onLogout }) {
 
   useEffect(() => {
     fetchData()
-
+    
     // تحديث البيانات كل 30 ثانية
     const interval = setInterval(fetchData, 30000)
-
+    
     return () => clearInterval(interval)
   }, [])
 
@@ -148,27 +116,24 @@ export function EnhancedAdminDashboard({ language, onLogout }) {
     )
   }
 
-  // Show error as banner instead of blocking entire page
-  const ErrorBanner = () => error ? (
-    <div className="mb-4 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center gap-3">
-      <AlertCircle className="h-5 w-5 text-red-600 flex-shrink-0" />
-      <div className="flex-1">
-        <p className="text-red-800 font-medium">تحذير: بعض البيانات غير متوفرة</p>
-        <p className="text-red-600 text-sm">{error}</p>
+  if (error) {
+    return (
+      <div className="min-h-screen bg-gray-50 flex items-center justify-center" dir="rtl">
+        <div className="text-center">
+          <AlertCircle className="h-8 w-8 mx-auto mb-4 text-red-600" />
+          <p className="text-red-600 mb-4">{error}</p>
+          <Button onClick={fetchData} variant="outline">
+            <RefreshCw className="h-4 w-4 mr-2" />
+            إعادة المحاولة
+          </Button>
+        </div>
       </div>
-      <Button onClick={fetchData} variant="outline" size="sm">
-        <RefreshCw className="h-4 w-4 ml-2" />
-        إعادة المحاولة
-      </Button>
-    </div>
-  ) : null
+    )
+  }
 
   return (
     <div className="min-h-screen bg-gray-50 p-6" dir="rtl">
       <div className="max-w-7xl mx-auto">
-        {/* Error Banner */}
-        <ErrorBanner />
-
         {/* Header */}
         <div className="mb-8 flex justify-between items-center">
           <div>
@@ -235,24 +200,6 @@ export function EnhancedAdminDashboard({ language, onLogout }) {
           </Card>
         </div>
 
-        {/* Enhanced Monitoring Sections */}
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* PIN Monitor for Clinic 1 */}
-          <div data-test="admin-pin-section">
-            <AdminPINMonitor clinicId="clinic1" autoRefresh={false} />
-          </div>
-
-          {/* Queue Monitor for Clinic 1 */}
-          <div data-test="admin-queue-section">
-            <AdminQueueMonitor clinicId="clinic1" autoRefresh={true} refreshInterval={5000} />
-          </div>
-        </div>
-
-        {/* QR Code Manager */}
-        <div className="mb-8" data-test="admin-qr-section">
-          <AdminQrManager language={language} />
-        </div>
-
         {/* Main Content */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* Clinic Occupancy */}
@@ -276,10 +223,11 @@ export function EnhancedAdminDashboard({ language, onLogout }) {
                         <div className="text-sm font-medium">
                           {clinic.current_load || 0}/{clinic.capacity || 0}
                         </div>
-                        <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${clinic.occupancy_percent > 80 ? 'bg-red-100 text-red-800' :
+                        <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                          clinic.occupancy_percent > 80 ? 'bg-red-100 text-red-800' :
                           clinic.occupancy_percent > 60 ? 'bg-yellow-100 text-yellow-800' :
-                            'bg-green-100 text-green-800'
-                          }`}>
+                          'bg-green-100 text-green-800'
+                        }`}>
                           {clinic.occupancy_percent || 0}%
                         </div>
                       </div>

@@ -296,7 +296,7 @@ export default function NotificationSystem({ patientId, currentClinic, yourNumbe
   return (
     <div className="notification-system">
       {/* إشعار بسيط في اليمين - لا يعيق المحتوى */}
-      <div className="fixed top-4 right-4 z-50 max-w-md w-auto">
+      <div className="fixed top-20 right-4 z-50 max-w-lg w-auto">
         <div
           className={`
             ${notification.bgColor} text-white
@@ -312,10 +312,10 @@ export default function NotificationSystem({ patientId, currentClinic, yourNumbe
           }}
         >
           <div className="flex-1">
-            <div className="font-black text-2xl mb-2" style={{ letterSpacing: '0.5px' }}>
+            <div className="font-black text-3xl mb-2" style={{ letterSpacing: '0.5px' }}>
               {notification.title}
             </div>
-            <div className="text-lg font-semibold opacity-100" style={{ letterSpacing: '0.3px' }}>
+            <div className="text-xl font-bold opacity-100" style={{ letterSpacing: '0.3px' }}>
               {notification.message}
             </div>
           </div>

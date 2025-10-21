@@ -92,7 +92,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
   // دخول تلقائي للعيادة الأولى
   const handleAutoEnterFirstClinic = async (station) => {
     try {
-      const res = await api.enterQueue(station.id, patientData.id)
+      const res = await api.enterQueue(station.id, patientData.id, true)
       const ticket = res?.display_number || res?.number || 1
       
       setActiveTicket({ clinicId: station.id, ticket })
@@ -199,7 +199,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
         
         try {
           // دخول تلقائي للعيادة التالية
-          const enterRes = await api.enterQueue(nextClinicId, patientData.id)
+          const enterRes = await api.enterQueue(nextClinicId, patientData.id, true)
           const nextTicket = enterRes?.display_number || enterRes?.number || 1
           
           // تحديث جميع العيادات دفعة واحدة

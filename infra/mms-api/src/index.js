@@ -232,7 +232,7 @@ async function handlePatientLogin(request, env) {
 async function handleQueueEnter(request, env) {
   try {
     const body = await request.json();
-    const { clinic, user } = body;
+    const { clinic, user, isAutoEntry } = body;
 
     if (!clinic || !user) {
       return jsonResponse({
@@ -278,7 +278,7 @@ async function handleQueueEnter(request, env) {
       const entry = {
         number: uniqueNumber,
         user: user,
-        status: 'WAITING',
+        status: isAutoEntry ? 'IN_PROGRESS' : 'WAITING',
         enteredAt: new Date().toISOString()
       };
 
@@ -500,7 +500,7 @@ async function handleClinicExit(request, env) {
 
     // Get patient route
     const routeKey = `route:${patientId}`;
-    const routeData = await env.KV_ROUTES.get(routeKey, { type: 'json' });
+    const routeData = await env.KV_QUEUES.get(routeKey, { type: 'json' });
 
     if (!routeData) {
       return jsonResponse({
@@ -528,7 +528,7 @@ async function handleClinicExit(request, env) {
     }
 
     // Save updated route
-    await env.KV_ROUTES.put(routeKey, JSON.stringify(routeData), {
+    await env.KV_QUEUES.put(routeKey, JSON.stringify(routeData), {
       expirationTtl: 86400
     });
 

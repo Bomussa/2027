@@ -115,10 +115,10 @@ class ApiService {
    * Body: { clinic, user }
    * Response: { success, clinic, user, number, status, ahead, display_number }
    */
-  async enterQueue(clinic, user) {
+  async enterQueue(clinic, user, isAutoEntry = false) {
     return this.request(`${API_VERSION}/queue/enter`, {
       method: 'POST',
-      body: JSON.stringify({ clinic, user })
+      body: JSON.stringify({ clinic, user, isAutoEntry })
     })
   }
 

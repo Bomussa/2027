@@ -184,13 +184,14 @@ class EnhancedApiClient {
      * Body: { clinic, user }
      * Response: { success, clinic, user, number, status, ahead, display_number }
      */
-    async enterQueue(clinicId, visitId) {
+    async enterQueue(clinicId, visitId, isAutoEntry = false) {
         this.clearCache('/queue/status') // Clear queue cache
         return this.request(`${API_VERSION}/queue/enter`, {
             method: 'POST',
             body: JSON.stringify({ 
                 clinic: clinicId, 
-                user: visitId 
+                user: visitId,
+                isAutoEntry
             })
         })
     }

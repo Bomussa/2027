@@ -134,7 +134,7 @@ class LocalApiService {
   // Queue APIs
   // ==========================================
 
-  async enterQueue(clinic, user) {
+  async enterQueue(clinic, user, isAutoEntry = false) {
     try {
       const queues = this.getItem('queues') || {};
       
@@ -153,7 +153,7 @@ class LocalApiService {
       const entry = {
         number: uniqueNumber,
         user: user,
-        status: 'WAITING',
+        status: isAutoEntry ? 'IN_PROGRESS' : 'WAITING',
         enteredAt: new Date().toISOString()
       };
 

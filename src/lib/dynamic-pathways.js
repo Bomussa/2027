@@ -52,39 +52,27 @@ async function fetchClinicWeights(clinicIds) {
 
 // ترتيب العيادات حسب الأوزان مع احترام قيود الطوابق
 function sortClinicsByWeight(clinics, weights) {
-  // تجميع العيادات حسب الطابق
-  const floorGroups = {
-    'M': [], // الميزانين
-    '2': [], // الطابق الثاني
-    '3': [], // الطابق الثالث
-    'G': []  // الطابق الأرضي
-  }
+  // إضافة الوزن لكل عيادة
+  const clinicsWithWeights = clinics.map(clinic => ({
+    ...clinic,
+    weight: weights[clinic.id] || 0
+  }))
   
-  clinics.forEach(clinic => {
-    const floor = clinic.floorCode || 'M'
-    if (floorGroups[floor]) {
-      floorGroups[floor].push(clinic)
-    } else {
-      floorGroups['2'].push(clinic) // افتراضي للطابق الثاني
+  // ترتيب حسب الوزن أولاً (الفارغة أولاً)
+  clinicsWithWeights.sort((a, b) => {
+    // الترتيب الأساسي: حسب الوزن
+    if (a.weight !== b.weight) {
+      return a.weight - b.weight
     }
+    
+    // إذا كان الوزن متساوي، نرتب حسب الطابق
+    const floorOrder = { 'M': 1, 'G': 2, '2': 3, '3': 4 }
+    const floorA = floorOrder[a.floorCode] || 3
+    const floorB = floorOrder[b.floorCode] || 3
+    return floorA - floorB
   })
   
-  // ترتيب كل طابق داخلياً حسب الوزن (الفارغة أولاً)
-  Object.keys(floorGroups).forEach(floor => {
-    floorGroups[floor].sort((a, b) => {
-      const weightA = weights[a.id] || 0
-      const weightB = weights[b.id] || 0
-      return weightA - weightB
-    })
-  })
-  
-  // دمج الطوابق بالترتيب: الميزانين → الطابق الثاني → الطابق الثالث → الأرضي
-  return [
-    ...floorGroups['M'],
-    ...floorGroups['2'],
-    ...floorGroups['3'],
-    ...floorGroups['G']
-  ]
+  return clinicsWithWeights
 }
 
 // الحصول على المسار الطبي حسب نوع الفحص والجنس

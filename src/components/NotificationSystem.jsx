@@ -193,13 +193,13 @@ export default function NotificationSystem({ patientId, currentClinic, yourNumbe
         playNotificationSound('normal');
         setHasShownLocationGuide(true);
 
-        // إخفاء دليل الموقع بعد 12 ثانية
+        // إخفاء دليل الموقع بعد 30 ثانية
         setTimeout(() => {
           setNotification(prev => {
             if (prev && prev.isLocationGuide) return null;
             return prev;
           });
-        }, 12000);
+        }, 30000);
       }
     }
   }, [currentClinic, getLocationGuide, playNotificationSound]);
@@ -295,8 +295,8 @@ export default function NotificationSystem({ patientId, currentClinic, yourNumbe
 
   return (
     <div className="notification-system">
-      {/* إشعار بسيط في الأعلى - لا يعيق المحتوى */}
-      <div className="fixed top-4 left-1/2 transform -translate-x-1/2 z-50 max-w-md w-11/12">
+      {/* إشعار بسيط في اليمين - لا يعيق المحتوى */}
+      <div className="fixed top-4 right-4 z-50 max-w-md w-auto">
         <div
           className={`
             ${notification.bgColor} text-white

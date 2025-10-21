@@ -31,7 +31,9 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
           // تحويل البيانات إلى صيغة { clinic_id: pin_number }
           const pinsMap = {}
           Object.keys(data.pins).forEach(key => {
-            pinsMap[key] = data.pins[key].pin
+            // التعامل مع كلا الحالتين (object و string)
+            const pinData = data.pins[key]
+            pinsMap[key] = typeof pinData === 'object' ? pinData.pin : pinData
           })
           setClinicPins(pinsMap)
           console.log('Daily PINs loaded:', pinsMap)
@@ -42,7 +44,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     }
     
     fetchDailyPins()
-  }, [])حديث كل 5 دقائق
+    // تحديث كل 5 دقائق
     const interval = setInterval(fetchDailyPins, 5 * 60 * 1000)
     return () => clearInterval(interval)
   }, [])
@@ -215,7 +217,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
       }
 
       // استدعاء API للخروج
-      await api.clinicExit(patientData.id, station.id, pinInput)
+      await api.queueDone(station.id, patientData.id, pinInput)
 
       // تحديد العيادة التالية
       const currentIdx = stations.findIndex(s => s.id === station.id)
@@ -473,6 +475,11 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
                         <p className="text-gray-400 text-sm">
                           {t('floor', language)}: {language === 'ar' ? station.floor : station.floorCode}
                         </p>
+                        {clinicPins[station.id] && (
+                          <p className="text-yellow-400 text-sm font-bold">
+                            PIN: {clinicPins[station.id]}
+                          </p>
+                        )}
                       </div>
                     </div>
                     <div className="text-right">

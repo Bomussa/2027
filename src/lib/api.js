@@ -218,6 +218,19 @@ class ApiService {
   // ==========================================
 
   /**
+   * إنشاء وحفظ مسار المراجع
+   * Backend: POST /api/v1/route/create
+   * Body: { patientId, examType, gender, stations }
+   * Response: { success, route }
+   */
+  async createRoute(patientId, examType, gender, stations) {
+    return this.request(`${API_VERSION}/route/create`, {
+      method: 'POST',
+      body: JSON.stringify({ patientId, examType, gender, stations })
+    })
+  }
+
+  /**
    * اختيار المسار الطبي
    * Backend: GET /api/v1/path/choose
    * Response: { success, path: [...] }

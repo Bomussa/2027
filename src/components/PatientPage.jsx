@@ -66,6 +66,18 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
         
         setStations(initialStations)
         
+        // حفظ المسار في Backend
+        try {
+          await api.createRoute(
+            patientData.id,
+            patientData.queueType,
+            patientData.gender,
+            examStations
+          )
+        } catch (err) {
+          console.error('Failed to save route:', err)
+        }
+        
         // دخول تلقائي للعيادة الأولى
         if (examStations.length > 0) {
           const firstClinic = examStations[0]

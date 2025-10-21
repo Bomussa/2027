@@ -628,6 +628,53 @@ async function handlePinGenerate(request, env) {
   }
 }
 
+// Route Create - حفظ مسار المراجع
+async function handleRouteCreate(request, env) {
+  try {
+    const body = await request.json();
+    const { patientId, examType, gender, stations } = body;
+
+    if (!patientId || !stations || !Array.isArray(stations)) {
+      return jsonResponse({
+        success: false,
+        error: 'Missing required fields'
+      }, 400);
+    }
+
+    const routeData = {
+      patientId,
+      examType,
+      gender,
+      stations: stations.map((s, idx) => ({
+        id: s.id,
+        name: s.name,
+        nameAr: s.nameAr,
+        floor: s.floor,
+        status: idx === 0 ? 'ready' : 'locked',
+        entryTime: idx === 0 ? new Date().toISOString() : null,
+        exitTime: null
+      })),
+      createdAt: new Date().toISOString()
+    };
+
+    const routeKey = `route:${patientId}`;
+    await env.KV_QUEUES.put(routeKey, JSON.stringify(routeData), {
+      expirationTtl: 86400 // 24 hours
+    });
+
+    return jsonResponse({
+      success: true,
+      route: routeData
+    });
+
+  } catch (error) {
+    return jsonResponse({
+      success: false,
+      error: error.message
+    }, 500);
+  }
+}
+
 // Path Choose
 async function handlePathChoose(request, env) {
   try {
@@ -841,6 +888,10 @@ async function handleRequest(request, env) {
 
   if (path === '/api/v1/pin/generate' && request.method === 'POST') {
     return handlePinGenerate(request, env);
+  }
+
+  if (path === '/api/v1/route/create' && request.method === 'POST') {
+    return handleRouteCreate(request, env);
   }
 
   if (path === '/api/v1/path/choose' && request.method === 'POST') {

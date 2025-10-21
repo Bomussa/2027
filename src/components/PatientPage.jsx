@@ -284,6 +284,14 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
       // استدعاء API للخروج
       const exitResult = await api.queueDone(station.id, patientData.id, pinInput)
       
+      // التحقق من نجاح العملية
+      if (!exitResult || !exitResult.success) {
+        const errorMsg = exitResult?.error || (language === 'ar' ? 'رقم PIN غير صحيح' : 'Incorrect PIN')
+        alert(errorMsg)
+        setLoading(false)
+        return
+      }
+      
       // Log duration for analytics
       if (exitResult && exitResult.duration_minutes) {
         console.log(`✅ Clinic ${station.id} completed in ${exitResult.duration_minutes} minutes`)

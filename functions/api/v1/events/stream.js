@@ -1,5 +1,6 @@
 // SSE endpoint for real-time notifications
 // Cloudflare Pages Functions format
+// Updated to work with current queue structure
 
 export const onRequestGet = async (context) => {
   const { request, env } = context;
@@ -23,66 +24,131 @@ export const onRequestGet = async (context) => {
   // Send initial connection event
   sendEvent('connected', { status: 'ok', timestamp: Date.now(), clinic, user });
 
+  // Track last position to detect changes
+  let lastPosition = null;
+  let lastNotificationType = null;
+
   // Function to check queue and send notifications
   const checkQueueAndNotify = async () => {
     if (!clinic || !user) return;
     
     try {
-      // Get queue status from KV
-      const dateKey = new Date().toISOString().split('T')[0];
-      const queueKey = `queue:${clinic}:${dateKey}`;
-      const queueData = await env.MMC_KV.get(queueKey, { type: 'json' });
+      // Get queue data from current structure
+      const kv = env?.KV_QUEUES;
+      if (!kv) return;
+
+      const listKey = `queue:list:${clinic}`;
+      const statusKey = `queue:status:${clinic}`;
+      const userKey = `queue:user:${clinic}:${user}`;
       
-      if (!queueData || !queueData.waiting) return;
+      // Get queue list and status
+      const queueList = await kv.get(listKey, { type: 'json' }) || [];
+      const status = await kv.get(statusKey, { type: 'json' }) || { current: null, served: [] };
+      const userEntry = await kv.get(userKey, { type: 'json' });
       
-      // Find user's position
-      const userIndex = queueData.waiting.findIndex(entry => entry.user === user);
-      if (userIndex === -1) return;
+      if (!userEntry || !userEntry.number) return;
       
-      const position = userIndex + 1;
+      const userNumber = userEntry.number;
       
-      // Send notification based on position
-      if (position === 1) {
-        sendEvent('queue_update', {
-          type: 'YOUR_TURN',
-          clinic,
-          user,
-          position: 1,
-          message: 'دورك الآن',
-          messageEn: 'Your turn now',
-          timestamp: Date.now()
-        });
-      } else if (position === 2) {
-        sendEvent('queue_update', {
-          type: 'NEAR_TURN',
-          clinic,
-          user,
-          position: 2,
-          message: 'اقترب دورك - أنت التالي',
-          messageEn: 'Near your turn - You are next',
-          timestamp: Date.now()
-        });
-      } else if (position === 3) {
-        sendEvent('queue_update', {
-          type: 'ALMOST_READY',
-          clinic,
-          user,
-          position: 3,
-          message: 'استعد - أنت الثالث',
-          messageEn: 'Get ready - You are third',
-          timestamp: Date.now()
-        });
+      // Calculate position in queue
+      let position = 0;
+      let ahead = 0;
+      
+      if (status.current) {
+        // Someone is being served
+        // Count how many are ahead of us (between current and us)
+        ahead = queueList.filter(item => 
+          item.number > status.current && 
+          item.number < userNumber &&
+          !status.served.includes(item.number)
+        ).length;
+        position = ahead + 1; // +1 because current is position 0
       } else {
+        // No one being served yet
+        ahead = queueList.filter(item => 
+          item.number < userNumber &&
+          !status.served.includes(item.number)
+        ).length;
+        position = ahead + 1;
+      }
+      
+      // Total waiting
+      const totalWaiting = queueList.filter(item => 
+        !status.served.includes(item.number)
+      ).length;
+      
+      // Determine notification type based on position
+      let notificationType = null;
+      let shouldNotify = false;
+      
+      if (ahead === 0 && !status.current) {
+        // User is first and no one is being served - YOUR TURN
+        notificationType = 'YOUR_TURN';
+        shouldNotify = lastNotificationType !== 'YOUR_TURN';
+      } else if (ahead === 0 && status.current && status.current !== userNumber) {
+        // User is next (current is being served)
+        notificationType = 'NEXT_IN_LINE';
+        shouldNotify = lastNotificationType !== 'NEXT_IN_LINE';
+      } else if (ahead === 1) {
+        // User is second in line
+        notificationType = 'NEAR_TURN';
+        shouldNotify = lastNotificationType !== 'NEAR_TURN';
+      } else if (ahead === 2) {
+        // User is third in line
+        notificationType = 'ALMOST_READY';
+        shouldNotify = lastNotificationType !== 'ALMOST_READY';
+      } else if (position !== lastPosition) {
+        // Position changed
+        notificationType = 'POSITION_UPDATE';
+        shouldNotify = true;
+      }
+      
+      // Send notification if needed
+      if (shouldNotify && notificationType) {
+        let message = '';
+        let messageEn = '';
+        
+        switch (notificationType) {
+          case 'YOUR_TURN':
+            message = '🔔 حان دورك الآن!';
+            messageEn = '🔔 Your turn now!';
+            break;
+          case 'NEXT_IN_LINE':
+            message = '⏰ أنت التالي - استعد';
+            messageEn = '⏰ You are next - Get ready';
+            break;
+          case 'NEAR_TURN':
+            message = '⏰ اقترب دورك';
+            messageEn = '⏰ Near your turn';
+            break;
+          case 'ALMOST_READY':
+            message = '📋 استعد - أنت الثالث';
+            messageEn = '📋 Get ready - You are third';
+            break;
+          case 'POSITION_UPDATE':
+            message = `📊 موقعك: ${position} من ${totalWaiting}`;
+            messageEn = `📊 Position: ${position} of ${totalWaiting}`;
+            break;
+        }
+        
         sendEvent('queue_update', {
-          type: 'POSITION_UPDATE',
+          type: notificationType,
           clinic,
           user,
           position,
-          message: `موقعك في الدور: ${position}`,
-          messageEn: `Your position: ${position}`,
+          ahead,
+          total: totalWaiting,
+          number: userNumber,
+          current: status.current,
+          message,
+          messageEn,
           timestamp: Date.now()
         });
+        
+        lastNotificationType = notificationType;
+        lastPosition = position;
       }
+      
     } catch (error) {
       console.error('Error checking queue:', error);
     }
@@ -91,8 +157,8 @@ export const onRequestGet = async (context) => {
   // Check queue immediately
   checkQueueAndNotify();
 
-  // Check queue every 5 seconds
-  const queueCheckInterval = setInterval(checkQueueAndNotify, 5000);
+  // Check queue every 2 seconds for real-time updates
+  const queueCheckInterval = setInterval(checkQueueAndNotify, 2000);
 
   // Send heartbeat every 15 seconds
   const heartbeatInterval = setInterval(() => {

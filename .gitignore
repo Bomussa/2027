@@ -124,3 +124,4 @@ logs/screenshots/*
 
 # Build artifacts
 dist_server/
+.lock

@@ -50,13 +50,41 @@ async function fetchClinicWeights(clinicIds) {
   return weights
 }
 
-// ترتيب العيادات حسب الأوزان (الفارغة أولاً)
+// ترتيب العيادات حسب الأوزان مع احترام قيود الطوابق
 function sortClinicsByWeight(clinics, weights) {
-  return [...clinics].sort((a, b) => {
-    const weightA = weights[a.id] || 0
-    const weightB = weights[b.id] || 0
-    return weightA - weightB
+  // تجميع العيادات حسب الطابق
+  const floorGroups = {
+    'M': [], // الميزانين
+    '2': [], // الطابق الثاني
+    '3': [], // الطابق الثالث
+    'G': []  // الطابق الأرضي
+  }
+  
+  clinics.forEach(clinic => {
+    const floor = clinic.floorCode || 'M'
+    if (floorGroups[floor]) {
+      floorGroups[floor].push(clinic)
+    } else {
+      floorGroups['2'].push(clinic) // افتراضي للطابق الثاني
+    }
   })
+  
+  // ترتيب كل طابق داخلياً حسب الوزن (الفارغة أولاً)
+  Object.keys(floorGroups).forEach(floor => {
+    floorGroups[floor].sort((a, b) => {
+      const weightA = weights[a.id] || 0
+      const weightB = weights[b.id] || 0
+      return weightA - weightB
+    })
+  })
+  
+  // دمج الطوابق بالترتيب: الميزانين → الطابق الثاني → الطابق الثالث → الأرضي
+  return [
+    ...floorGroups['M'],
+    ...floorGroups['2'],
+    ...floorGroups['3'],
+    ...floorGroups['G']
+  ]
 }
 
 // الحصول على المسار الطبي حسب نوع الفحص والجنس

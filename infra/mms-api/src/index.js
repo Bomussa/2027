@@ -16,6 +16,81 @@ const CORS_HEADERS = {
 };
 
 // ==========================================
+// Rate Limiting
+// ==========================================
+const RATE_LIMIT = {
+  windowMs: 60000, // 1 minute
+  maxRequests: 100  // max requests per window
+};
+
+async function checkRateLimit(env, clientId) {
+  const key = `ratelimit:${clientId}`;
+  const current = await env.KV_CACHE.get(key, { type: 'json' }) || { count: 0, resetAt: Date.now() + RATE_LIMIT.windowMs };
+  
+  if (Date.now() > current.resetAt) {
+    current.count = 0;
+    current.resetAt = Date.now() + RATE_LIMIT.windowMs;
+  }
+  
+  if (current.count >= RATE_LIMIT.maxRequests) {
+    return { allowed: false, resetAt: current.resetAt };
+  }
+  
+  current.count++;
+  await env.KV_CACHE.put(key, JSON.stringify(current), {
+    expirationTtl: Math.ceil(RATE_LIMIT.windowMs / 1000)
+  });
+  
+  return { allowed: true, remaining: RATE_LIMIT.maxRequests - current.count };
+}
+
+// ==========================================
+// Distributed Lock
+// ==========================================
+async function acquireLock(env, resource, timeout = 5000) {
+  const lockKey = `lock:${resource}`;
+  const lockId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const expiresAt = Date.now() + timeout;
+  
+  const existingLock = await env.KV_LOCKS.get(lockKey, { type: 'json' });
+  
+  if (existingLock && Date.now() < existingLock.expiresAt) {
+    throw new Error('Resource is locked');
+  }
+  
+  await env.KV_LOCKS.put(lockKey, JSON.stringify({
+    id: lockId,
+    expiresAt
+  }), {
+    expirationTtl: Math.ceil(timeout / 1000)
+  });
+  
+  return lockId;
+}
+
+async function releaseLock(env, resource, lockId) {
+  const lockKey = `lock:${resource}`;
+  const existingLock = await env.KV_LOCKS.get(lockKey, { type: 'json' });
+  
+  if (existingLock && existingLock.id === lockId) {
+    await env.KV_LOCKS.delete(lockKey);
+    return true;
+  }
+  
+  return false;
+}
+
+async function withLock(env, resource, fn) {
+  const lockId = await acquireLock(env, resource);
+  
+  try {
+    return await fn();
+  } finally {
+    await releaseLock(env, resource, lockId);
+  }
+}
+
+// ==========================================
 // Helper Functions
 // ==========================================
 function jsonResponse(data, status = 200) {
@@ -37,6 +112,37 @@ function generateUniqueNumber() {
 
 function generatePIN() {
   return String(Math.floor(Math.random() * 90) + 10).padStart(2, '0');
+}
+
+function validatePatientId(patientId) {
+  return /^\d{2,12}$/.test(patientId);
+}
+
+function validateGender(gender) {
+  return ['male', 'female'].includes(gender);
+}
+
+function validateClinic(clinic) {
+  const validClinics = ['lab', 'xray', 'vitals', 'ecg', 'audio', 'eyes', 'internal', 'ent', 'surgery', 'dental', 'psychiatry', 'derma', 'bones'];
+  return validClinics.includes(clinic);
+}
+
+async function emitQueueEvent(env, clinic, user, type, position) {
+  try {
+    const event = {
+      type,
+      clinic,
+      user,
+      position,
+      timestamp: new Date().toISOString()
+    };
+    const eventKey = `event:${clinic}:${user}:${Date.now()}`;
+    await env.KV_EVENTS.put(eventKey, JSON.stringify(event), {
+      expirationTtl: 3600
+    });
+  } catch (error) {
+    console.error('Failed to emit event:', error);
+  }
 }
 
 // ==========================================
@@ -122,7 +228,7 @@ async function handlePatientLogin(request, env) {
   }
 }
 
-// Queue Enter
+// Queue Enter (with distributed lock)
 async function handleQueueEnter(request, env) {
   try {
     const body = await request.json();
@@ -135,46 +241,78 @@ async function handleQueueEnter(request, env) {
       }, 400);
     }
 
-    // Generate unique number
-    const uniqueNumber = generateUniqueNumber();
+    if (!validateClinic(clinic)) {
+      return jsonResponse({
+        success: false,
+        error: 'Invalid clinic'
+      }, 400);
+    }
 
-    // Get current queue
-    const queueKey = `queue:list:${clinic}`;
-    const queueData = await env.KV_QUEUES.get(queueKey, { type: 'json' }) || [];
+    // Use distributed lock to prevent race conditions
+    return await withLock(env, `queue:${clinic}`, async () => {
+      // Get current queue
+      const queueKey = `queue:list:${clinic}`;
+      const queueData = await env.KV_QUEUES.get(queueKey, { type: 'json' }) || [];
 
-    // Add to queue
-    const entry = {
-      number: uniqueNumber,
-      user: user,
-      status: 'WAITING',
-      enteredAt: new Date().toISOString()
-    };
+      // Check if user already in queue
+      const existingEntry = queueData.find(e => e.user === user);
+      if (existingEntry) {
+        const position = queueData.indexOf(existingEntry) + 1;
+        return jsonResponse({
+          success: true,
+          clinic: clinic,
+          user: user,
+          number: existingEntry.number,
+          status: 'ALREADY_IN_QUEUE',
+          ahead: position - 1,
+          display_number: position,
+          position: position,
+          message: 'You are already in the queue'
+        });
+      }
 
-    queueData.push(entry);
+      // Generate unique number
+      const uniqueNumber = generateUniqueNumber();
 
-    // Save queue
-    await env.KV_QUEUES.put(queueKey, JSON.stringify(queueData), {
-      expirationTtl: 86400
-    });
+      // Add to queue
+      const entry = {
+        number: uniqueNumber,
+        user: user,
+        status: 'WAITING',
+        enteredAt: new Date().toISOString()
+      };
 
-    // Save user entry
-    await env.KV_QUEUES.put(
-      `queue:user:${clinic}:${user}`,
-      JSON.stringify(entry),
-      { expirationTtl: 86400 }
-    );
+      queueData.push(entry);
 
-    // Calculate ahead
-    const ahead = queueData.length - 1;
+      // Save queue
+      await env.KV_QUEUES.put(queueKey, JSON.stringify(queueData), {
+        expirationTtl: 86400
+      });
 
-    return jsonResponse({
-      success: true,
-      clinic: clinic,
-      user: user,
-      number: uniqueNumber,
-      status: 'WAITING',
-      ahead: ahead,
-      display_number: queueData.length
+      // Save user entry
+      await env.KV_QUEUES.put(
+        `queue:user:${clinic}:${user}`,
+        JSON.stringify(entry),
+        { expirationTtl: 86400 }
+      );
+
+      // Calculate ahead and position
+      const ahead = queueData.length - 1;
+      const position = queueData.length;
+
+      // Emit event for real-time updates
+      await emitQueueEvent(env, clinic, user, 'ENTERED', position);
+
+      return jsonResponse({
+        success: true,
+        clinic: clinic,
+        user: user,
+        number: uniqueNumber,
+        status: 'WAITING',
+        ahead: ahead,
+        display_number: position,
+        position: position
+      });
     });
 
   } catch (error) {

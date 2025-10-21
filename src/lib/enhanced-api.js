@@ -17,9 +17,61 @@ function resolveApiBase() {
 class EnhancedApiClient {
     constructor() {
         this.baseUrl = resolveApiBase()
+        this.cache = new Map()
+        this.pendingRequests = new Map()
+        this.retryConfig = { maxRetries: 3, baseDelay: 1000, maxDelay: 10000 }
+        this.metrics = { requests: 0, errors: 0, cacheHits: 0, cacheMisses: 0 }
     }
 
-    async request(endpoint, options = {}) {
+    sleep(ms) {
+        return new Promise(resolve => setTimeout(resolve, ms))
+    }
+
+    getRetryDelay(attempt) {
+        const delay = Math.min(
+            this.retryConfig.baseDelay * Math.pow(2, attempt),
+            this.retryConfig.maxDelay
+        )
+        return delay + Math.random() * 1000
+    }
+
+    getCacheKey(endpoint, options) {
+        const method = options?.method || 'GET'
+        const body = options?.body || ''
+        return `${method}:${endpoint}:${body}`
+    }
+
+    getCached(key, ttl = 30000) {
+        const cached = this.cache.get(key)
+        if (!cached) {
+            this.metrics.cacheMisses++
+            return null
+        }
+        if (Date.now() > cached.expiresAt) {
+            this.cache.delete(key)
+            this.metrics.cacheMisses++
+            return null
+        }
+        this.metrics.cacheHits++
+        return cached.data
+    }
+
+    setCache(key, data, ttl = 30000) {
+        this.cache.set(key, { data, expiresAt: Date.now() + ttl })
+    }
+
+    clearCache(pattern) {
+        if (!pattern) {
+            this.cache.clear()
+            return
+        }
+        for (const [key] of this.cache) {
+            if (key.includes(pattern)) this.cache.delete(key)
+        }
+    }
+
+    async requestWithRetry(endpoint, options = {}, attempt = 0) {
+        this.metrics.requests++
         const url = `${this.baseUrl}${endpoint}`
         const config = {
             headers: {
@@ -31,7 +83,13 @@ class EnhancedApiClient {
 
         try {
             const response = await fetch(url, config)
-            const data = await response.json()
+            const text = await response.text()
+            let data
+            try {
+                data = text ? JSON.parse(text) : {}
+            } catch {
+                data = { raw: text }
+            }
 
             if (!response.ok) {
                 throw new Error(data?.error || `HTTP ${response.status}`)
@@ -39,9 +97,48 @@ class EnhancedApiClient {
 
             return data
         } catch (error) {
+            this.metrics.errors++
+            
+            if (attempt < this.retryConfig.maxRetries) {
+                const delay = this.getRetryDelay(attempt)
+                console.warn(`Request failed, retrying in ${delay}ms (${attempt + 1}/${this.retryConfig.maxRetries})`, error)
+                await this.sleep(delay)
+                return this.requestWithRetry(endpoint, options, attempt + 1)
+            }
+            
             console.error(`API Error [${endpoint}]:`, error)
             throw error
         }
+    }
+
+    async request(endpoint, options = {}, cacheTTL = null) {
+        const cacheKey = this.getCacheKey(endpoint, options)
+        
+        // Check cache for GET requests
+        if ((!options.method || options.method === 'GET') && cacheTTL !== null) {
+            const cached = this.getCached(cacheKey, cacheTTL)
+            if (cached) return cached
+        }
+        
+        // Check for pending duplicate request
+        if (this.pendingRequests.has(cacheKey)) {
+            return this.pendingRequests.get(cacheKey)
+        }
+        
+        // Make request
+        const requestPromise = this.requestWithRetry(endpoint, options)
+            .then(data => {
+                if ((!options.method || options.method === 'GET') && cacheTTL !== null) {
+                    this.setCache(cacheKey, data, cacheTTL)
+                }
+                return data
+            })
+            .finally(() => {
+                this.pendingRequests.delete(cacheKey)
+            })
+        
+        this.pendingRequests.set(cacheKey, requestPromise)
+        return requestPromise
     }
 
     // ============================================
@@ -53,7 +150,7 @@ class EnhancedApiClient {
      * Backend: GET /api/v1/pin/status
      */
     async getPinStatus() {
-        return this.request(`${API_VERSION}/pin/status`)
+        return this.request(`${API_VERSION}/pin/status`, {}, 300000) // Cache for 5 minutes
     }
 
     /**
@@ -88,6 +185,7 @@ class EnhancedApiClient {
      * Response: { success, clinic, user, number, status, ahead, display_number }
      */
     async enterQueue(clinicId, visitId) {
+        this.clearCache('/queue/status') // Clear queue cache
         return this.request(`${API_VERSION}/queue/enter`, {
             method: 'POST',
             body: JSON.stringify({ 
@@ -103,7 +201,7 @@ class EnhancedApiClient {
      * Response: { success, clinic, list, current_serving, total_waiting }
      */
     async getQueueStatus(clinicId) {
-        return this.request(`${API_VERSION}/queue/status?clinic=${clinicId}`)
+        return this.request(`${API_VERSION}/queue/status?clinic=${clinicId}`, {}, 5000) // Cache for 5 seconds
     }
 
     /**
@@ -113,6 +211,7 @@ class EnhancedApiClient {
      * Response: { success, message }
      */
     async completeQueue(clinicId, visitId, pin) {
+        this.clearCache('/queue/status') // Clear queue cache
         return this.request(`${API_VERSION}/queue/done`, {
             method: 'POST',
             body: JSON.stringify({ 
@@ -129,6 +228,7 @@ class EnhancedApiClient {
      * Body: { clinic }
      */
     async callNextPatient(clinicId) {
+        this.clearCache('/queue/status') // Clear queue cache
         return this.request(`${API_VERSION}/queue/call`, {
             method: 'POST',
             body: JSON.stringify({ clinic: clinicId })
@@ -298,27 +398,55 @@ class EnhancedApiClient {
     /**
      * Play notification sound
      */
-    playNotificationSound() {
+    playNotificationSound(type = 'info') {
         try {
             const audioContext = new (window.AudioContext || window.webkitAudioContext)()
-            const oscillator = audioContext.createOscillator()
-            const gainNode = audioContext.createGain()
-
-            oscillator.connect(gainNode)
-            gainNode.connect(audioContext.destination)
-
-            oscillator.frequency.value = 800
-            oscillator.type = 'sine'
-
-            gainNode.gain.setValueAtTime(0, audioContext.currentTime)
-            gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01)
-            gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.1)
-            gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.2)
-
-            oscillator.start(audioContext.currentTime)
-            oscillator.stop(audioContext.currentTime + 0.2)
+            
+            const sounds = {
+                success: [{ freq: 600, dur: 150 }, { freq: 800, dur: 150, delay: 150 }],
+                warning: [{ freq: 700, dur: 100 }, { freq: 700, dur: 100, delay: 150 }, { freq: 700, dur: 100, delay: 300 }],
+                error: [{ freq: 400, dur: 300 }],
+                urgent: [{ freq: 900, dur: 100 }, { freq: 700, dur: 100, delay: 150 }, { freq: 900, dur: 100, delay: 300 }, { freq: 700, dur: 100, delay: 450 }],
+                info: [{ freq: 800, dur: 200 }]
+            }
+            
+            const soundPattern = sounds[type] || sounds.info
+            
+            soundPattern.forEach(({ freq, dur, delay = 0 }) => {
+                setTimeout(() => {
+                    const oscillator = audioContext.createOscillator()
+                    const gainNode = audioContext.createGain()
+                    
+                    oscillator.connect(gainNode)
+                    gainNode.connect(audioContext.destination)
+                    
+                    oscillator.frequency.value = freq
+                    oscillator.type = 'sine'
+                    
+                    const now = audioContext.currentTime
+                    gainNode.gain.setValueAtTime(0, now)
+                    gainNode.gain.linearRampToValueAtTime(0.3, now + 0.01)
+                    gainNode.gain.linearRampToValueAtTime(0.3, now + dur / 1000 - 0.05)
+                    gainNode.gain.linearRampToValueAtTime(0, now + dur / 1000)
+                    
+                    oscillator.start(now)
+                    oscillator.stop(now + dur / 1000)
+                }, delay)
+            })
         } catch (error) {
             console.log('Audio notification failed:', error)
+        }
+    }
+    
+    getMetrics() {
+        const cacheHitRate = this.metrics.requests > 0
+            ? ((this.metrics.cacheHits / (this.metrics.cacheHits + this.metrics.cacheMisses)) * 100).toFixed(2)
+            : 0
+        return {
+            ...this.metrics,
+            cacheHitRate: `${cacheHitRate}%`,
+            cacheSize: this.cache.size,
+            pendingRequests: this.pendingRequests.size
         }
     }
 }

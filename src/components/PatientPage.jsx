@@ -169,62 +169,57 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
       // استدعاء API للخروج
       await api.queueDone(station.id, patientData.id, pinInput)
 
-      // تحديث الحالة وفتح العيادة التالية
-      setStations(prev => {
-        const idx = prev.findIndex(s => s.id === station.id)
-        if (idx >= 0) {
-          const next = [...prev]
-          next[idx] = { ...next[idx], status: 'completed', exitTime: new Date() }
+      // تحديد العيادة التالية
+      const currentIdx = stations.findIndex(s => s.id === station.id)
+      const hasNextClinic = currentIdx >= 0 && currentIdx + 1 < stations.length
+      
+      // إذا كانت هناك عيادة تالية، ندخلها تلقائياً
+      if (hasNextClinic) {
+        const nextClinicId = stations[currentIdx + 1].id
+        
+        try {
+          // دخول تلقائي للعيادة التالية
+          const enterRes = await api.enterQueue(nextClinicId, patientData.id)
+          const nextTicket = enterRes?.display_number || enterRes?.number || 1
           
-          // فتح العيادة التالية تلقائياً
-          if (idx + 1 < next.length) {
-            const nextClinicId = next[idx + 1].id
-            
-            // جلب بيانات الطابور للعيادة التالية
-            api.getQueueStatus(nextClinicId)
-              .then(queueData => {
-                // دخول تلقائي للعيادة التالية
-                api.enterQueue(nextClinicId, patientData.id)
-                  .then(enterRes => {
-                    const nextTicket = enterRes?.display_number || enterRes?.number || (queueData.current || 0) + 1
-                    
-                    setStations(current => current.map((s, i) => {
-                      if (i === idx + 1) {
-                        return {
-                          ...s,
-                          status: 'ready',
-                          current: queueData.current || 0,
-                          yourNumber: nextTicket,
-                          ahead: queueData.waiting || 0,
-                          isEntered: true
-                        }
-                      }
-                      return s
-                    }))
-                    
-                    setActiveTicket({ clinicId: nextClinicId, ticket: nextTicket })
-                  })
-                  .catch(err => {
-                    console.error('Failed to auto-enter next clinic:', err)
-                    // في حالة الفشل، نفتح العيادة بدون دخول
-                    setStations(current => current.map((s, i) => 
-                      i === idx + 1 ? { ...s, status: 'ready', yourNumber: 1 } : s
-                    ))
-                  })
-              })
-              .catch(err => {
-                console.error('Failed to fetch next clinic queue:', err)
-                // في حالة الفشل، نفتح العيادة بدون بيانات
-                setStations(current => current.map((s, i) => 
-                  i === idx + 1 ? { ...s, status: 'ready', yourNumber: 1 } : s
-                ))
-              })
-          }
+          // تحديث جميع العيادات دفعة واحدة
+          setStations(prev => prev.map((s, i) => {
+            if (i === currentIdx) {
+              // العيادة الحالية - مكتملة
+              return { ...s, status: 'completed', exitTime: new Date() }
+            } else if (i === currentIdx + 1) {
+              // العيادة التالية - جاهزة ومفتوحة
+              return {
+                ...s,
+                status: 'ready',
+                current: enterRes?.current || 0,
+                yourNumber: nextTicket,
+                ahead: enterRes?.ahead || 0,
+                isEntered: true
+              }
+            }
+            return s
+          }))
           
-          return next
+          setActiveTicket({ clinicId: nextClinicId, ticket: nextTicket })
+        } catch (err) {
+          console.error('Failed to auto-enter next clinic:', err)
+          // في حالة الفشل، نفتح العيادة بدون دخول
+          setStations(prev => prev.map((s, i) => {
+            if (i === currentIdx) {
+              return { ...s, status: 'completed', exitTime: new Date() }
+            } else if (i === currentIdx + 1) {
+              return { ...s, status: 'ready', yourNumber: 1, isEntered: true }
+            }
+            return s
+          }))
         }
-        return prev
-      })
+      } else {
+        // لا توجد عيادة تالية - فقط نكمل العيادة الحالية
+        setStations(prev => prev.map((s, i) => 
+          i === currentIdx ? { ...s, status: 'completed', exitTime: new Date() } : s
+        ))
+      }
 
       setPinInput('')
       setSelectedStation(null)

@@ -21,15 +21,43 @@ export async function onRequest(context) {
   
   try {
     const body = await request.json();
-    const { clinic, user } = body;
+    const { clinic, user, pin } = body;
     
     if (!clinic || !user) {
       return jsonResponse({ success: false, error: 'Missing clinic or user' }, 400);
     }
     
+    // التحقق من البن كود (PIN Verification)
+    if (!pin) {
+      return jsonResponse({ 
+        success: false, 
+        error: 'يرجى إدخال رقم PIN',
+        error_en: 'PIN required'
+      }, 400);
+    }
+    
     const kv = env.KV_QUEUES;
     if (!kv) {
       return jsonResponse({ success: false, error: 'KV not available' }, 500);
+    }
+    
+    // التحقق من صحة البن كود
+    const kvPins = env.KV_PINS;
+    if (kvPins) {
+      const today = new Date().toISOString().split('T')[0];
+      const pinsKey = `pins:daily:${today}`;
+      const dailyPins = await kvPins.get(pinsKey, 'json');
+      
+      if (dailyPins) {
+        const correctPin = dailyPins[clinic];
+        if (correctPin && String(pin) !== String(correctPin)) {
+          return jsonResponse({ 
+            success: false, 
+            error: '❌ رقم PIN غير صحيح',
+            error_en: '❌ Incorrect PIN'
+          }, 400);
+        }
+      }
     }
     
     const now = new Date();

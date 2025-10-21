@@ -120,11 +120,36 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     loadPathway()
   }, [patientData.queueType, patientData.gender])
 
-  // دخول يدوي لأي عيادة
+  // دخول يدوي لأي عيادة - يتطلب البن كود
   const handleEnterClinic = async (station) => {
     try {
       setLoading(true)
-      const res = await api.enterQueue(station.id, patientData.id, true)
+      
+      // التحقق من إدخال البن كود
+      if (!pinInput || !pinInput.trim()) {
+        alert(language === 'ar' ? 'الرجاء إدخال رقم PIN الخاص بالعيادة' : 'Please enter clinic PIN')
+        setLoading(false)
+        return
+      }
+      
+      // الحصول على البن كود الصحيح من clinicPins
+      const correctPin = clinicPins[station.id]
+      
+      if (!correctPin) {
+        alert(language === 'ar' ? 'لم يتم العثور على PIN لهذه العيادة' : 'PIN not found for this clinic')
+        setLoading(false)
+        return
+      }
+      
+      // التحقق من صحة البن كود
+      if (pinInput.trim() !== String(correctPin)) {
+        alert(language === 'ar' ? '❌ رقم PIN غير صحيح' : '❌ Incorrect PIN')
+        setLoading(false)
+        return
+      }
+      
+      // البن كود صحيح - الدخول للطابور
+      const res = await api.enterQueue(station.id, patientData.id, pinInput.trim())
       const ticket = res?.display_number || res?.number || 1
       
       setActiveTicket({ clinicId: station.id, ticket })
@@ -137,6 +162,13 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
         isEntered: true
       } : s))
       
+      // مسح حقل الإدخال
+      setPinInput('')
+      setSelectedStation(null)
+      
+      // إشعار بالنجاح
+      alert(language === 'ar' ? '✅ تم الدخول بنجاح' : '✅ Successfully entered')
+      
       setLoading(false)
     } catch (e) {
       console.error('Enter clinic failed:', e)
@@ -145,31 +177,27 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     }
   }
 
-  // دخول تلقائي للعيادة الأولى
+  // فتح العيادة الأولى بدون دخول تلقائي - يتطلب البن كود
   const handleAutoEnterFirstClinic = async (station) => {
-    try {
-      const res = await api.enterQueue(station.id, patientData.id, true)
-      const ticket = res?.display_number || res?.number || 1
-      
-      setActiveTicket({ clinicId: station.id, ticket })
-      setStations(prev => prev.map((s, idx) => idx === 0 ? {
-        ...s,
-        current: res?.current || 0,
-        yourNumber: ticket,
-        ahead: res?.ahead || 0,
-        status: 'ready',
-        isEntered: true
-      } : s))
-    } catch (e) {
-      console.error('Auto-enter first clinic failed:', e)
-      // في حالة الفشل، نعطي رقم دور افتراضي
-      setStations(prev => prev.map((s, idx) => idx === 0 ? {
-        ...s,
-        yourNumber: 1,
-        status: 'ready',
-        isEntered: true
-      } : s))
-    }
+    // لا ندخل تلقائياً - فقط نفتح العيادة للدخول اليدوي
+    setStations(prev => prev.map((s, idx) => idx === 0 ? {
+      ...s,
+      status: 'ready',
+      isEntered: false,
+      current: 0,
+      yourNumber: 0,
+      ahead: 0
+    } : s))
+    
+    // إشعار بضرورة إدخال البن كود
+    setCurrentNotice({
+      type: 'pin_required',
+      message: language === 'ar' 
+        ? `🔑 يرجى إدخال رقم PIN للدخول إلى ${station.nameAr}` 
+        : `🔑 Please enter PIN to enter ${station.name}`,
+      clinic: station.nameAr
+    })
+    setTimeout(() => setCurrentNotice(null), 8000)
   }
 
   // Fetch route with ZFD validation
@@ -513,17 +541,33 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
                   </div>
 
                   {station.status === 'ready' && !station.isEntered && (
-                    <div className="mt-4 pt-4 border-t border-gray-600">
-                      <Button
-                        variant="gradientPrimary"
-                        onClick={() => handleEnterClinic(station)}
-                        disabled={loading}
-                        className="w-full"
-                        data-test="enter-clinic-btn"
-                      >
-                        <LogIn className="icon icon-md me-2" />
-                        {language === 'ar' ? 'دخول العيادة' : 'Enter Clinic'}
-                      </Button>
+                    <div className="mt-4 pt-4 border-t border-gray-600 space-y-3">
+                      <div className="bg-yellow-500/10 border border-yellow-500/30 rounded p-3">
+                        <p className="text-yellow-400 text-sm font-medium">
+                          🔑 {language === 'ar' ? 'رقم PIN اليوم:' : 'Today\'s PIN:'} <span className="text-2xl font-bold">{clinicPins[station.id] || '...'}</span>
+                        </p>
+                      </div>
+                      <div className="flex gap-2">
+                        <Input
+                          type="text"
+                          placeholder={language === 'ar' ? 'أدخل رقم PIN' : 'Enter PIN'}
+                          value={selectedStation?.id === station.id ? pinInput : ''}
+                          onChange={(e) => { setSelectedStation(station); setPinInput(e.target.value) }}
+                          className="bg-gray-600 border-gray-500 text-white flex-1"
+                          maxLength={2}
+                          data-test="pin-input-enter"
+                        />
+                        <Button
+                          variant="gradientPrimary"
+                          onClick={() => handleEnterClinic(station)}
+                          disabled={loading || !pinInput.trim()}
+                          className="flex-shrink-0"
+                          data-test="enter-clinic-btn"
+                        >
+                          <LogIn className="icon icon-md me-2" />
+                          {language === 'ar' ? 'دخول' : 'Enter'}
+                        </Button>
+                      </div>
                     </div>
                   )}
 

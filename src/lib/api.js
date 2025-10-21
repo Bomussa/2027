@@ -168,13 +168,17 @@ class ApiService {
   /**
    * دخول الدور في عيادة
    * Backend: POST /api/v1/queue/enter
-   * Body: { clinic, user }
+   * Body: { clinic, user, pin }
    * Response: { success, clinic, user, number, status, ahead, display_number }
    */
-  async enterQueue(clinic, user, isAutoEntry = false) {
+  async enterQueue(clinic, user, pin) {
     return this.request(`${API_VERSION}/queue/enter`, {
       method: 'POST',
-      body: JSON.stringify({ clinic, user, isAutoEntry })
+      body: JSON.stringify({ 
+        clinic, 
+        user, 
+        pin: String(pin) 
+      })
     })
   }
 

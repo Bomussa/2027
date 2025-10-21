@@ -2,6 +2,10 @@ import React from 'react'
 import ReactDOM from 'react-dom/client'
 import App from './App.jsx'
 import './index.css'
+import { initDeviceFixes } from './utils/device-fix.js'
+
+// Initialize device compatibility fixes
+initDeviceFixes()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>

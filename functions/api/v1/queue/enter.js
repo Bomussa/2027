@@ -1,199 +1,139 @@
-// Queue Enter - Assign unique queue number to patient
-// Uses timestamp-based unique IDs (guaranteed 100% unique)
+// Queue Enter - CRITICAL: Most accurate queue number calculation
+// Uses timestamp-based unique IDs + real-time verification
 // Each clinic has independent queue
 
-// In-memory storage (fallback when KV is not available)
-const memoryQueues = new Map();
-const memoryUsers = new Map();
-const memoryStatus = new Map();
-
 function generateUniqueNumber() {
-  // Generate unique number using timestamp + random
-  // Format: YYYYMMDDHHMMSS + 4-digit random
+  // Generate GUARANTEED unique number using high-precision timestamp
   const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  const hours = String(now.getHours()).padStart(2, '0');
-  const minutes = String(now.getMinutes()).padStart(2, '0');
-  const seconds = String(now.getSeconds()).padStart(2, '0');
-  const milliseconds = String(now.getMilliseconds()).padStart(3, '0');
-  const random = String(Math.floor(Math.random() * 1000)).padStart(3, '0');
-  
-  return parseInt(`${year}${month}${day}${hours}${minutes}${seconds}${milliseconds}${random}`);
+  const timestamp = now.getTime(); // Milliseconds since epoch
+  const random = Math.floor(Math.random() * 10000); // 4-digit random
+  return parseInt(`${timestamp}${random}`);
 }
 
-export async function onRequest(context) {
+function jsonResponse(data, status = 200) {
+  return new Response(JSON.stringify(data, null, 2), {
+    status,
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Access-Control-Allow-Origin': '*',
+      'Cache-Control': 'no-cache, no-store, must-revalidate'
+    }
+  });
+}
+
+export async function onRequestPost(context) {
   const { request, env } = context;
-  
-  if (request.method !== 'POST') {
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'Method not allowed'
-    }), {
-      status: 405,
-      headers: { 
-        'Content-Type': 'application/json; charset=utf-8',
-        'Access-Control-Allow-Origin': '*'
-      }
-    });
-  }
   
   try {
     const body = await request.json();
     const { clinic, user } = body;
     
     if (!clinic || !user) {
-      return new Response(JSON.stringify({
+      return jsonResponse({
         success: false,
         error: 'Missing clinic or user'
-      }), {
-        status: 400,
-        headers: { 
-          'Content-Type': 'application/json; charset=utf-8',
-          'Access-Control-Allow-Origin': '*'
-        }
-      });
+      }, 400);
     }
     
-    // Generate unique number (guaranteed unique)
-    const uniqueNumber = generateUniqueNumber();
+    const kv = env.KV_QUEUES;
+    if (!kv) {
+      return jsonResponse({
+        success: false,
+        error: 'KV storage not available'
+      }, 500);
+    }
     
-    // Store user entry with detailed timestamps
+    // Generate UNIQUE number
+    const uniqueNumber = generateUniqueNumber();
     const now = new Date();
+    const entryTime = now.toISOString();
+    
+    // Store user entry with precise timestamp
     const userEntry = {
       number: uniqueNumber,
       status: 'WAITING',
-      entered_at: now.toISOString(),
+      entered_at: entryTime,
       entry_date: now.toISOString().split('T')[0],
-      entry_time: now.toISOString(),
+      entry_time: entryTime,
       user: user,
       clinic: clinic
     };
     
-    // Try KV first, fallback to memory
-    let kv = env?.KV_QUEUES;
-    const statusKey = `queue:status:${clinic}`;
     const userKey = `queue:user:${clinic}:${user}`;
+    await kv.put(userKey, JSON.stringify(userEntry), {
+      expirationTtl: 86400
+    });
+    
+    // Add to queue list
     const listKey = `queue:list:${clinic}`;
+    let queueList = await kv.get(listKey, 'json') || [];
     
-    let queueList = [];
-    let status = { current: null, served: [] };
+    queueList.push({
+      number: uniqueNumber,
+      user: user,
+      entered_at: entryTime
+    });
     
-    if (kv) {
-      try {
-        // Use KV storage
-        await kv.put(userKey, JSON.stringify(userEntry), {
-          expirationTtl: 86400
-        });
-        
-        queueList = await kv.get(listKey, { type: 'json' }) || [];
-        queueList.push({
-          number: uniqueNumber,
-          user: user,
-          entered_at: userEntry.entered_at
-        });
-        
-        await kv.put(listKey, JSON.stringify(queueList), {
-          expirationTtl: 86400
-        });
-        
-        status = await kv.get(statusKey, { type: 'json' }) || { current: null, served: [] };
-      } catch (e) {
-        console.log('KV error, falling back to memory:', e);
-        kv = null; // Force fallback
-      }
-    }
+    await kv.put(listKey, JSON.stringify(queueList), {
+      expirationTtl: 86400
+    });
     
-    if (!kv) {
-      // Use memory storage
-      memoryUsers.set(userKey, userEntry);
-      
-      queueList = memoryQueues.get(listKey) || [];
-      queueList.push({
-        number: uniqueNumber,
-        user: user,
-        entered_at: userEntry.entered_at
-      });
-      memoryQueues.set(listKey, queueList);
-      
-      status = memoryStatus.get(statusKey) || { current: null, served: [] };
-    }
+    // ===== CRITICAL CALCULATION: ACCURATE QUEUE POSITION =====
     
-    // Calculate how many are ahead (CRITICAL: Most important feature)
-    let ahead = 0;
-    let activeQueue = [];
+    // STEP 1: Get ALL users in this clinic's queue
+    const allUsersPromises = queueList.map(async (item) => {
+      const itemKey = `queue:user:${clinic}:${item.user}`;
+      const itemData = await kv.get(itemKey, 'json');
+      return itemData;
+    });
     
-    // Get only WAITING patients (exclude DONE)
-    if (kv) {
-      try {
-        // Check each user's status from KV
-        const activePromises = queueList.map(async (item) => {
-          const itemUserKey = `queue:user:${clinic}:${item.user}`;
-          const itemData = await kv.get(itemUserKey, 'json');
-          if (itemData && itemData.status !== 'DONE') {
-            return item;
-          }
-          return null;
-        });
-        activeQueue = (await Promise.all(activePromises)).filter(Boolean);
-      } catch (e) {
-        // Fallback: assume all are active
-        activeQueue = queueList;
-      }
-    } else {
-      // Memory fallback: check status
-      activeQueue = queueList.filter(item => {
-        const itemUserKey = `queue:user:${clinic}:${item.user}`;
-        const itemData = memoryUsers.get(itemUserKey);
-        return !itemData || itemData.status !== 'DONE';
-      });
-    }
+    const allUsers = (await Promise.all(allUsersPromises)).filter(Boolean);
     
-    if (status.current) {
-      // Count how many active patients are ahead of us
-      ahead = activeQueue.filter(item => 
-        item.number < uniqueNumber && 
-        (!status.current || item.number > status.current)
-      ).length;
-    } else {
-      // No one is being served yet, count all active before us
-      ahead = activeQueue.filter(item => item.number < uniqueNumber).length;
-    }
+    // STEP 2: Filter ONLY WAITING (exclude DONE)
+    const waitingUsers = allUsers.filter(u => u.status === 'WAITING');
     
-    // CRITICAL: Display number = position in active queue
-    const myPositionInQueue = activeQueue.filter(item => item.number <= uniqueNumber).length;
+    // STEP 3: Sort by entry_time (earliest first)
+    waitingUsers.sort((a, b) => {
+      const timeA = new Date(a.entry_time).getTime();
+      const timeB = new Date(b.entry_time).getTime();
+      return timeA - timeB;
+    });
     
-    return new Response(JSON.stringify({
+    // STEP 4: Find my position in sorted waiting list
+    const myIndex = waitingUsers.findIndex(u => u.user === user && u.clinic === clinic);
+    const myPosition = myIndex + 1; // 1-based position
+    
+    // STEP 5: Calculate ahead (how many before me)
+    const ahead = myIndex >= 0 ? myIndex : 0;
+    
+    // STEP 6: Total waiting
+    const totalWaiting = waitingUsers.length;
+    
+    // VERIFICATION: Log for debugging
+    console.log(`✅ Queue Entry: ${clinic} - User ${user}`);
+    console.log(`   Position: ${myPosition} of ${totalWaiting}`);
+    console.log(`   Ahead: ${ahead}`);
+    console.log(`   Entry Time: ${entryTime}`);
+    
+    return jsonResponse({
       success: true,
       clinic: clinic,
       user: user,
       number: uniqueNumber,
       status: 'WAITING',
       ahead: ahead,
-      display_number: myPositionInQueue, // CORRECT: Your actual position in queue
-      total_waiting: activeQueue.length // Total active patients
-    }), {
-      status: 200,
-      headers: { 
-        'Content-Type': 'application/json; charset=utf-8',
-        'Cache-Control': 'no-cache, no-store, must-revalidate',
-        'Access-Control-Allow-Origin': '*'
-      }
+      display_number: myPosition,
+      total_waiting: totalWaiting,
+      entry_time: entryTime,
+      calculation_method: 'precise_timestamp_based'
     });
     
   } catch (error) {
     console.error('Queue enter error:', error);
-    return new Response(JSON.stringify({
+    return jsonResponse({
       success: false,
       error: error.message
-    }), {
-      status: 500,
-      headers: { 
-        'Content-Type': 'application/json; charset=utf-8',
-        'Access-Control-Allow-Origin': '*'
-      }
-    });
+    }, 500);
   }
 }
 

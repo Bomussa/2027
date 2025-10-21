@@ -21,6 +21,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
   const [activeTicket, setActiveTicket] = useState(null)
   const [currentNotice, setCurrentNotice] = useState(null)
   const [routeWithZFD, setRouteWithZFD] = useState(null)
+  const [queuePositions, setQueuePositions] = useState({}) // Real-time queue positions
 
   // جلب أرقام البن كود اليومية من API
   useEffect(() => {

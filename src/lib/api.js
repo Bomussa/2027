@@ -179,6 +179,17 @@ class ApiService {
   }
 
   /**
+   * الحصول على موقع الدور الحالي (للتحديث الدوري)
+   * Backend: GET /api/v1/queue/position?clinic=xxx&user=yyy
+   * Response: { success, display_number, ahead, total_waiting, estimated_wait_minutes }
+   */
+  async getQueuePosition(clinic, user) {
+    return this.request(`${API_VERSION}/queue/position?clinic=${clinic}&user=${user}`, {
+      method: 'GET'
+    })
+  }
+
+  /**
    * حالة الدور في عيادة
    * Backend: GET /api/v1/queue/status?clinic=xxx
    * Response: { success, clinic, list, current_serving, total_waiting }

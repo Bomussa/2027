@@ -134,16 +134,16 @@ export default function NotificationSystem({
     let floorIcon = '🏢';
 
     if (floor === 'الميزانين' || clinic.floorCode === 'M') {
-      floorInstruction = 'اذهب للمصعد → اضغط M';
+      floorInstruction = '📍 اتجه للمصعد المقابل للباب الخلفي\n🔼 اضغط على حرف M في المصعد';
       floorIcon = '🅼';
     } else if (floor === 'الطابق الثاني' || clinic.floorCode === '2') {
-      floorInstruction = 'اذهب للمصعد → اضغط 2';
+      floorInstruction = '📍 اتجه للمصعد المقابل للباب الخلفي\n🔼 اضغط على رقم 2 في المصعد';
       floorIcon = '2️⃣';
     } else if (floor === 'الطابق الثالث' || clinic.floorCode === '3') {
-      floorInstruction = 'اذهب للمصعد → اضغط 3';
+      floorInstruction = '📍 اتجه للمصعد المقابل للباب الخلفي\n🔼 اضغط على رقم 3 في المصعد';
       floorIcon = '3️⃣';
     } else if (floor === 'الطابق الأرضي' || clinic.floorCode === 'G') {
-      floorInstruction = 'اذهب للمصعد → اضغط G';
+      floorInstruction = '📍 اتجه للمصعد المقابل للباب الخلفي\n🔼 اضغط على حرف G في المصعد';
       floorIcon = '🅶';
     } else {
       return null;

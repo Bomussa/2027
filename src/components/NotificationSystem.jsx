@@ -6,10 +6,11 @@ import { useEffect, useState, useRef, useCallback } from 'react';
  * يظهر فقط في الوقت المناسب ولا يعيق رؤية المحتوى
  * يوفر إرشادات واضحة لموقع العيادة وكيفية الوصول إليها
  */
-export default function NotificationSystem({ patientId, currentClinic, yourNumber, currentServing }) {
+export default function NotificationSystem({ patientId, currentClinic, yourNumber, currentServing, allStationsCompleted }) {
   const [notification, setNotification] = useState(null);
   const [hasPermission, setHasPermission] = useState(false);
   const [hasShownLocationGuide, setHasShownLocationGuide] = useState(false);
+  const [hasShownCompletionNotice, setHasShownCompletionNotice] = useState(false);
   const audioContextRef = useRef(null);
   const lastPositionRef = useRef(null);
   const lastClinicRef = useRef(null);
@@ -130,6 +131,47 @@ export default function NotificationSystem({ patientId, currentClinic, yourNumbe
 
     return null;
   }, []);
+
+  // إشعار إنهاء الفحص
+  useEffect(() => {
+    if (allStationsCompleted && !hasShownCompletionNotice) {
+      setHasShownCompletionNotice(true);
+      
+      const completionNotif = {
+        title: '✅ تم إنهاء الفحص بنجاح',
+        message: 'يرجى التوجه إلى استقبال اللجنة الطبية',
+        bgColor: 'bg-green-600',
+        priority: 'success',
+        isCompletionNotice: true
+      };
+
+      setNotification(completionNotif);
+      playNotificationSound('normal');
+
+      // إشعار المتصفح
+      if (hasPermission) {
+        new Notification(completionNotif.title, {
+          body: completionNotif.message,
+          icon: '/medical_logo.jpg',
+          badge: '/medical_logo.jpg',
+          requireInteraction: true
+        });
+      }
+
+      // الاهتزاز
+      if ('vibrate' in navigator) {
+        navigator.vibrate([200, 100, 200]);
+      }
+
+      // يبقى ظاهراً لمدة 30 ثانية
+      setTimeout(() => {
+        setNotification(prev => {
+          if (prev && prev.isCompletionNotice) return null;
+          return prev;
+        });
+      }, 30000);
+    }
+  }, [allStationsCompleted, hasShownCompletionNotice, playNotificationSound, hasPermission]);
 
   // عرض دليل الموقع عند تغيير العيادة
   useEffect(() => {

@@ -363,14 +363,13 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
         />
       )}
 
-      {stations.find(s => s.status === 'active' || s.status === 'ready') && (
-        <NotificationSystem
-          patientId={patientData?.id}
-          currentClinic={stations.find(s => s.status === 'active' || s.status === 'ready')}
-          yourNumber={stations.find(s => s.status === 'active' || s.status === 'ready')?.yourNumber}
-          currentServing={stations.find(s => s.status === 'active' || s.status === 'ready')?.current}
-        />
-      )}
+      <NotificationSystem
+        patientId={patientData?.id}
+        currentClinic={stations.find(s => s.status === 'active' || s.status === 'ready')}
+        yourNumber={stations.find(s => s.status === 'active' || s.status === 'ready')?.yourNumber}
+        currentServing={stations.find(s => s.status === 'active' || s.status === 'ready')?.current}
+        allStationsCompleted={allStationsCompleted}
+      />
 
       <div className="max-w-4xl mx-auto space-y-6">
         <div className="absolute top-4 left-4">

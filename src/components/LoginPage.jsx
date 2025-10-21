@@ -14,6 +14,24 @@ export function LoginPage({ onLogin, onAdminLogin, currentTheme, onThemeChange, 
   const [adminUsername, setAdminUsername] = useState('')
   const [adminPassword, setAdminPassword] = useState('')
 
+  // تحويل الأرقام العربية إلى إنجليزية
+  const normalizeArabicNumbers = (str) => {
+    const arabicNumbers = ['٠', '١', '٢', '٣', '٤', '٥', '٦', '٧', '٨', '٩'];
+    const englishNumbers = ['0', '1', '2', '3', '4', '5', '6', '7', '8', '9'];
+    
+    let result = str;
+    for (let i = 0; i < arabicNumbers.length; i++) {
+      result = result.replace(new RegExp(arabicNumbers[i], 'g'), englishNumbers[i]);
+    }
+    return result;
+  }
+
+  // معالج تغيير رقم المراجع
+  const handlePatientIdChange = (e) => {
+    const normalized = normalizeArabicNumbers(e.target.value);
+    setPatientId(normalized);
+  }
+
   const handleSubmit = async (e) => {
     e.preventDefault()
     if (!patientId.trim()) return
@@ -150,7 +168,7 @@ export function LoginPage({ onLogin, onAdminLogin, currentTheme, onThemeChange, 
                     type="text"
                     placeholder={t('enterPersonalNumber', language)}
                     value={patientId}
-                    onChange={(e) => setPatientId(e.target.value)}
+                    onChange={handlePatientIdChange}
                     className="bg-gray-700/50 border-gray-600 text-white placeholder-gray-400"
                     pattern="^[0-9]{2,12}$"
                     title={language === 'ar' ? 'الرقم العسكري يجب أن يتكون من 2 إلى 12 رقمًا' : 'Military number must be 2-12 digits'}

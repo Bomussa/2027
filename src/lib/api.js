@@ -58,13 +58,34 @@ class ApiService {
   }
 
   offlineFallback(endpoint, options = {}) {
-    // NO OFFLINE FALLBACK - All features require backend
-    // This ensures:
-    // 1. Real-time data synchronization
-    // 2. PIN verification security
-    // 3. Queue management accuracy
-    // 4. Dynamic routing correctness
-    return { ok: false }
+    // LIMITED OFFLINE FALLBACK - Only for display purposes
+    // CRITICAL: PIN verification MUST use backend only
+    try {
+      const method = (options.method || 'GET').toUpperCase()
+      
+      // ONLY allow read-only operations for display
+      if (endpoint === `${API_VERSION}/pin/status` && method === 'GET') {
+        // Return mock PINs ONLY for display (not for verification)
+        return {
+          ok: true,
+          data: {
+            success: true,
+            offline: true,
+            message: 'عرض فقط - يتطلب اتصال للتحقق',
+            pins: {}
+          }
+        }
+      }
+      
+      // BLOCK all write operations (enter, done, exit)
+      if (method === 'POST' || method === 'PUT' || method === 'DELETE') {
+        return { ok: false }
+      }
+
+      return { ok: false }
+    } catch (e) {
+      return { ok: false }
+    }
   }
 
   // ==========================================

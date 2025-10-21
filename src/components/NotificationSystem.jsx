@@ -23,6 +23,7 @@ export default function NotificationSystem({
   const lastPositionRef = useRef(null);
   const lastClinicRef = useRef(null);
   const lastFloorRef = useRef(null); // لتتبع الطابق وعدم تكرار الإشعار
+  const hasShownInitialFloorGuide = useRef(false); // لعرض إشعار الطابق في البداية
 
   // طلب إذن الإشعارات
   useEffect(() => {
@@ -176,6 +177,34 @@ export default function NotificationSystem({
     }
   }, [allStationsCompleted, hasShownCompletionNotice, playNotificationSound, hasPermission]);
 
+  // عرض إشعار الطابق في البداية فوراً
+  useEffect(() => {
+    if (!currentClinic || hasShownInitialFloorGuide.current) return;
+
+    hasShownInitialFloorGuide.current = true;
+    const locationGuide = getLocationGuide(currentClinic);
+    
+    if (locationGuide) {
+      lastFloorRef.current = locationGuide.floor;
+      
+      setNotification({
+        ...locationGuide,
+        priority: 'info',
+        isLocationGuide: true
+      });
+
+      playNotificationSound('normal');
+
+      // إخفاء دليل الموقع بعد 30 ثانية
+      setTimeout(() => {
+        setNotification(prev => {
+          if (prev && prev.isLocationGuide) return null;
+          return prev;
+        });
+      }, 30000);
+    }
+  }, [currentClinic, getLocationGuide, playNotificationSound]);
+
   // مراقبة تغيير العيادة وعرض دليل الموقع (مرة واحدة لكل طابق)
   useEffect(() => {
     if (!currentClinic) return;
@@ -185,7 +214,7 @@ export default function NotificationSystem({
       lastClinicRef.current = currentClinic.id;
 
       const locationGuide = getLocationGuide(currentClinic);
-      if (locationGuide) {
+      if (locationGuide && lastFloorRef.current !== locationGuide.floor) {
         // تحديث آخر طابق تم عرضه
         lastFloorRef.current = locationGuide.floor;
         
@@ -228,10 +257,11 @@ export default function NotificationSystem({
 
     // إشعارات دقيقة حسب الموقع
     if (position === 0) {
-      // حان دورك - أولوية عاجلة
+      // حان دورك - أولوية عاجلة مع ذكر اسم العيادة
+      const clinicName = currentClinic?.nameAr || currentClinic?.name || 'العيادة المحددة';
       notif = {
         title: '🔴 حان دورك',
-        message: 'توجه للعيادة المحددة',
+        message: `اتجه لعيادة ${clinicName}`,
         bgColor: 'bg-red-600',
         priority: 'urgent'
       };

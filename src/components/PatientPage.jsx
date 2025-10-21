@@ -369,8 +369,6 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
           currentClinic={stations.find(s => s.status === 'active' || s.status === 'ready')}
           yourNumber={stations.find(s => s.status === 'active' || s.status === 'ready')?.yourNumber}
           currentServing={stations.find(s => s.status === 'active' || s.status === 'ready')?.current}
-          allClinics={stations}
-          completedClinics={stations.filter(s => s.status === 'completed').map(s => s.id)}
         />
       )}
 

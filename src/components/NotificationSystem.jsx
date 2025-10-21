@@ -1,131 +1,139 @@
-import { useEffect, useState, useRef, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 
 /**
- * NotificationSystem - نظام الإشعارات البسيط والواضح مع إرشادات الموقع
- * 
- * يظهر فقط في الوقت المناسب ولا يعيق رؤية المحتوى
- * يوفر إرشادات واضحة لموقع العيادة وكيفية الوصول إليها
+ * نظام الإشعارات المحسّن للمراجعين
+ * - إشعارات لحظية دقيقة 100% حسب الموقع في الطابور
+ * - إشعارات الموقع (الطابق) تظهر مرة واحدة فقط لكل طابق
+ * - نغمة بسيطة وواضحة
+ * - لا يعيق المحتوى
  */
-export default function NotificationSystem({ patientId, currentClinic, yourNumber, currentServing, allStationsCompleted }) {
+export default function NotificationSystem({ 
+  patientId, 
+  currentClinic, 
+  yourNumber, 
+  currentServing,
+  allStationsCompleted 
+}) {
   const [notification, setNotification] = useState(null);
   const [hasPermission, setHasPermission] = useState(false);
   const [hasShownLocationGuide, setHasShownLocationGuide] = useState(false);
   const [hasShownCompletionNotice, setHasShownCompletionNotice] = useState(false);
-  const audioContextRef = useRef(null);
+  
+  // تتبع آخر موقع وعيادة وطابق لتجنب التكرار
   const lastPositionRef = useRef(null);
   const lastClinicRef = useRef(null);
-
-  // إعداد Audio Context
-  useEffect(() => {
-    try {
-      audioContextRef.current = new (window.AudioContext || window.webkitAudioContext)();
-    } catch (e) {
-      console.warn('⚠️ Audio Context غير متاح:', e);
-    }
-  }, []);
+  const lastFloorRef = useRef(null); // لتتبع الطابق وعدم تكرار الإشعار
 
   // طلب إذن الإشعارات
   useEffect(() => {
-    if ('Notification' in window) {
-      if (Notification.permission === 'granted') {
-        setHasPermission(true);
-      } else if (Notification.permission !== 'denied') {
-        Notification.requestPermission().then(permission => {
-          setHasPermission(permission === 'granted');
-        });
-      }
+    if ('Notification' in window && Notification.permission === 'default') {
+      Notification.requestPermission().then(permission => {
+        setHasPermission(permission === 'granted');
+      });
+    } else if ('Notification' in window && Notification.permission === 'granted') {
+      setHasPermission(true);
     }
   }, []);
 
-  // تشغيل نغمة بسيطة
-  const playNotificationSound = useCallback((type = 'normal') => {
-    if (!audioContextRef.current) return;
-
-    try {
-      const ctx = audioContextRef.current;
-      const oscillator = ctx.createOscillator();
-      const gainNode = ctx.createGain();
+  // دالة تشغيل النغمة
+  const playNotificationSound = useCallback((type) => {
+    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    const oscillator = audioContext.createOscillator();
+    const gainNode = audioContext.createGain();
+    
+    oscillator.connect(gainNode);
+    gainNode.connect(audioContext.destination);
+    
+    // نغمات بسيطة وواضحة
+    if (type === 'urgent') {
+      // نغمة عاجلة (A5 + C6)
+      oscillator.frequency.value = 880;
+      gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.3);
       
-      oscillator.connect(gainNode);
-      gainNode.connect(ctx.destination);
-
-      switch (type) {
-        case 'urgent': // حان دورك
-          oscillator.frequency.value = 880;
-          gainNode.gain.setValueAtTime(0.3, ctx.currentTime);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-          oscillator.start();
-          oscillator.stop(ctx.currentTime + 0.5);
-          
-          setTimeout(() => {
-            const osc2 = ctx.createOscillator();
-            const gain2 = ctx.createGain();
-            osc2.connect(gain2);
-            gain2.connect(ctx.destination);
-            osc2.frequency.value = 1046;
-            gain2.gain.setValueAtTime(0.3, ctx.currentTime);
-            gain2.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.5);
-            osc2.start();
-            osc2.stop(ctx.currentTime + 0.5);
-          }, 200);
-          break;
-
-        case 'high':
-          oscillator.frequency.value = 659;
-          gainNode.gain.setValueAtTime(0.25, ctx.currentTime);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.4);
-          oscillator.start();
-          oscillator.stop(ctx.currentTime + 0.4);
-          break;
-
-        default:
-          oscillator.frequency.value = 523;
-          gainNode.gain.setValueAtTime(0.2, ctx.currentTime);
-          gainNode.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
-          oscillator.start();
-          oscillator.stop(ctx.currentTime + 0.3);
-      }
-    } catch (e) {
-      console.warn('⚠️ خطأ في تشغيل الصوت:', e);
+      // نغمة ثانية
+      setTimeout(() => {
+        const osc2 = audioContext.createOscillator();
+        const gain2 = audioContext.createGain();
+        osc2.connect(gain2);
+        gain2.connect(audioContext.destination);
+        osc2.frequency.value = 1046;
+        gain2.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gain2.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+        osc2.start(audioContext.currentTime);
+        osc2.stop(audioContext.currentTime + 0.3);
+      }, 300);
+    } else if (type === 'high') {
+      // نغمة عالية (E5)
+      oscillator.frequency.value = 659;
+      gainNode.gain.setValueAtTime(0.25, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.4);
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.4);
+    } else if (type === 'success') {
+      // نغمة نجاح (C5)
+      oscillator.frequency.value = 523;
+      gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.5);
+    } else {
+      // نغمة عادية (A4)
+      oscillator.frequency.value = 440;
+      gainNode.gain.setValueAtTime(0.15, audioContext.currentTime);
+      gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+      oscillator.start(audioContext.currentTime);
+      oscillator.stop(audioContext.currentTime + 0.3);
     }
   }, []);
 
-  // الحصول على إرشادات الموقع للعيادة
+  // الحصول على إرشادات الموقع للطابق (مرة واحدة فقط لكل طابق)
   const getLocationGuide = useCallback((clinic) => {
     if (!clinic) return null;
 
     const floor = clinic.floor || '';
     const floorCode = clinic.floorCode || '';
-    const clinicName = clinic.nameAr || clinic.name || '';
+
+    // التحقق من أننا لم نعرض إشعار هذا الطابق من قبل
+    const currentFloor = floor || floorCode;
+    if (lastFloorRef.current === currentFloor) {
+      return null; // لا نعرض إشعار الطابق مرة أخرى
+    }
 
     // إرشادات حسب الطابق
     if (floor === 'الميزانين' || floorCode === 'M') {
       return {
         icon: '🏢',
-        title: `📍 ${clinicName}`,
+        title: `📍 الميزانين`,
         message: `يرجى التوجه إلى طابق الميزانين عن طريق المصعد بالضغط على حرف M`,
-        bgColor: 'bg-blue-600'
+        bgColor: 'bg-blue-600',
+        floor: currentFloor
       };
     } else if (floor === 'الطابق الثاني' || floorCode === '2') {
       return {
         icon: '🏢',
-        title: `📍 ${clinicName}`,
+        title: `📍 الطابق الثاني`,
         message: `يرجى التوجه إلى الطابق الثاني عن طريق المصعد بالضغط على رقم 2 لإكمال فحص باقي عيادات اللجنة الطبية`,
-        bgColor: 'bg-blue-600'
+        bgColor: 'bg-blue-600',
+        floor: currentFloor
       };
     } else if (floor === 'الطابق الثالث' || floorCode === '3') {
       return {
         icon: '🏢',
-        title: `📍 ${clinicName}`,
+        title: `📍 الطابق الثالث`,
         message: `يرجى التوجه إلى الطابق الثالث عن طريق المصعد بالضغط على رقم 3 لإكمال فحص باقي عيادات اللجنة الطبية`,
-        bgColor: 'bg-blue-600'
+        bgColor: 'bg-blue-600',
+        floor: currentFloor
       };
     } else if (floor === 'الطابق الأرضي' || floorCode === 'G') {
       return {
         icon: '🏢',
-        title: `📍 ${clinicName}`,
+        title: `📍 الطابق الأرضي`,
         message: `يرجى التوجه إلى الطابق الأرضي عن طريق المصعد بالضغط على حرف G لإكمال فحص باقي عيادات اللجنة الطبية`,
-        bgColor: 'bg-blue-600'
+        bgColor: 'bg-blue-600',
+        floor: currentFloor
       };
     }
 
@@ -146,7 +154,7 @@ export default function NotificationSystem({ patientId, currentClinic, yourNumbe
       };
 
       setNotification(completionNotif);
-      playNotificationSound('normal');
+      playNotificationSound('success');
 
       // إشعار المتصفح
       if (hasPermission) {
@@ -158,12 +166,7 @@ export default function NotificationSystem({ patientId, currentClinic, yourNumbe
         });
       }
 
-      // الاهتزاز
-      if ('vibrate' in navigator) {
-        navigator.vibrate([200, 100, 200]);
-      }
-
-      // يبقى ظاهراً لمدة 30 ثانية
+      // إخفاء بعد 30 ثانية
       setTimeout(() => {
         setNotification(prev => {
           if (prev && prev.isCompletionNotice) return null;
@@ -173,17 +176,19 @@ export default function NotificationSystem({ patientId, currentClinic, yourNumbe
     }
   }, [allStationsCompleted, hasShownCompletionNotice, playNotificationSound, hasPermission]);
 
-  // عرض دليل الموقع عند تغيير العيادة
+  // مراقبة تغيير العيادة وعرض دليل الموقع (مرة واحدة لكل طابق)
   useEffect(() => {
     if (!currentClinic) return;
 
-    // إذا تغيرت العيادة، نعرض دليل الموقع
+    // إذا تغيرت العيادة
     if (lastClinicRef.current !== currentClinic.id) {
       lastClinicRef.current = currentClinic.id;
-      setHasShownLocationGuide(false);
 
       const locationGuide = getLocationGuide(currentClinic);
       if (locationGuide) {
+        // تحديث آخر طابق تم عرضه
+        lastFloorRef.current = locationGuide.floor;
+        
         setNotification({
           ...locationGuide,
           priority: 'info',
@@ -191,7 +196,6 @@ export default function NotificationSystem({ patientId, currentClinic, yourNumbe
         });
 
         playNotificationSound('normal');
-        setHasShownLocationGuide(true);
 
         // إخفاء دليل الموقع بعد 30 ثانية
         setTimeout(() => {
@@ -204,14 +208,17 @@ export default function NotificationSystem({ patientId, currentClinic, yourNumbe
     }
   }, [currentClinic, getLocationGuide, playNotificationSound]);
 
-  // حساب الموقع في الطابور
-  const position = yourNumber && currentServing ? yourNumber - currentServing : null;
+  // حساب الموقع في الطابور بدقة 100%
+  const position = (yourNumber !== null && yourNumber !== undefined && 
+                    currentServing !== null && currentServing !== undefined) 
+                    ? yourNumber - currentServing 
+                    : null;
 
-  // مراقبة التغييرات وإرسال الإشعارات في الوقت المناسب فقط
+  // مراقبة التغييرات وإرسال الإشعارات في الوقت المناسب بدقة 100%
   useEffect(() => {
     if (!currentClinic || position === null || position < 0) return;
 
-    // تجنب إرسال إشعارات مكررة
+    // تجنب إرسال إشعارات مكررة - دقة 100%
     if (lastPositionRef.current === position) return;
     lastPositionRef.current = position;
 
@@ -219,54 +226,45 @@ export default function NotificationSystem({ patientId, currentClinic, yourNumbe
     let soundType = null;
     let vibrate = false;
 
-    // إشعارات فقط للمواقع المهمة
+    // إشعارات دقيقة حسب الموقع
     if (position === 0) {
-      // دورك الآن!
+      // حان دورك - أولوية عاجلة
       notif = {
         title: '🔴 حان دورك',
-        message: `توجه للعيادة المحددة: ${currentClinic.nameAr}`,
+        message: 'توجه للعيادة المحددة',
         bgColor: 'bg-red-600',
         priority: 'urgent'
       };
       soundType = 'urgent';
       vibrate = true;
     } else if (position === 1) {
-      // باقي 1 قبلك
+      // أنت التالي - أولوية عالية
       notif = {
-        title: '⚠️ اقترب دورك',
-        message: `باقي 1 قبلك في ${currentClinic.nameAr}`,
+        title: '🟠 اقترب دورك',
+        message: 'باقي 1 قبلك',
         bgColor: 'bg-orange-600',
         priority: 'high'
       };
       soundType = 'high';
       vibrate = true;
     } else if (position === 2) {
-      // باقي 2 قبلك
+      // اقترب دورك - أولوية متوسطة
       notif = {
-        title: '⏰ اقترب دورك',
-        message: `باقي 2 قبلك في ${currentClinic.nameAr}`,
+        title: '🟡 اقترب دورك',
+        message: 'باقي 2 قبلك',
         bgColor: 'bg-yellow-600',
-        priority: 'high'
+        priority: 'medium'
       };
       soundType = 'high';
-      vibrate = false;
     }
 
     if (notif) {
       setNotification(notif);
+      playNotificationSound(soundType);
 
-      // تشغيل الصوت
-      if (soundType) {
-        playNotificationSound(soundType);
-      }
-
-      // الاهتزاز
+      // اهتزاز للإشعارات المهمة
       if (vibrate && 'vibrate' in navigator) {
-        if (notif.priority === 'urgent') {
-          navigator.vibrate([200, 100, 200, 100, 200]);
-        } else {
-          navigator.vibrate([200, 100, 200]);
-        }
+        navigator.vibrate([200, 100, 200]);
       }
 
       // إشعار المتصفح
@@ -283,12 +281,12 @@ export default function NotificationSystem({ patientId, currentClinic, yourNumbe
       const timeout = notif.priority === 'urgent' ? 10000 : 6000;
       setTimeout(() => {
         setNotification(prev => {
-          if (prev && !prev.isLocationGuide) return null;
+          if (prev && !prev.isLocationGuide && !prev.isCompletionNotice) return null;
           return prev;
         });
       }, timeout);
     }
-  }, [position, currentClinic, yourNumber, playNotificationSound, hasPermission]);
+  }, [position, currentClinic, yourNumber, currentServing, playNotificationSound, hasPermission]);
 
   // لا نعرض شيء إذا لم يكن هناك إشعار
   if (!notification) return null;
@@ -300,8 +298,8 @@ export default function NotificationSystem({ patientId, currentClinic, yourNumbe
         <div
           className={`
             ${notification.bgColor} text-white
-            px-8 py-6 rounded-2xl shadow-2xl
-            flex items-center justify-between gap-4
+            px-6 py-4 rounded-2xl shadow-2xl
+            flex items-center justify-between gap-3
             backdrop-blur-sm bg-opacity-98
             animate-slide-down
             border-2 border-white border-opacity-30
@@ -311,17 +309,25 @@ export default function NotificationSystem({ patientId, currentClinic, yourNumbe
             fontFamily: 'system-ui, -apple-system, sans-serif'
           }}
         >
+          {/* أيقونة صغيرة */}
+          <div className="text-2xl flex-shrink-0">
+            {notification.icon || '🔔'}
+          </div>
+          
+          {/* النص */}
           <div className="flex-1">
-            <div className="font-black text-3xl mb-2" style={{ letterSpacing: '0.5px' }}>
+            <div className="font-black text-2xl mb-1" style={{ letterSpacing: '0.5px' }}>
               {notification.title}
             </div>
-            <div className="text-xl font-bold opacity-100" style={{ letterSpacing: '0.3px' }}>
+            <div className="text-lg font-bold opacity-100" style={{ letterSpacing: '0.3px' }}>
               {notification.message}
             </div>
           </div>
+          
+          {/* زر الإغلاق */}
           <button
             onClick={() => setNotification(null)}
-            className="text-white opacity-90 hover:opacity-100 text-3xl leading-none px-3 font-bold"
+            className="text-white opacity-90 hover:opacity-100 text-2xl leading-none px-2 font-bold flex-shrink-0"
             aria-label="إغلاق"
           >
             ×
@@ -329,15 +335,14 @@ export default function NotificationSystem({ patientId, currentClinic, yourNumbe
         </div>
       </div>
 
-      {/* الأنيميشن */}
-      <style>{`
+      <style jsx>{`
         @keyframes slideDown {
           from {
-            transform: translate(-50%, -100px);
+            transform: translateY(-100px);
             opacity: 0;
           }
           to {
-            transform: translate(-50%, 0);
+            transform: translateY(0);
             opacity: 1;
           }
         }

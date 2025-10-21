@@ -27,7 +27,13 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
         const response = await fetch('/api/v1/pin/status')
         const data = await response.json()
         if (data.pins) {
-          setClinicPins(data.pins)
+          // تحويل البيانات إلى صيغة { clinic_id: pin_number }
+          const pinsMap = {}
+          Object.keys(data.pins).forEach(key => {
+            pinsMap[key] = data.pins[key].pin
+          })
+          setClinicPins(pinsMap)
+          console.log('Daily PINs loaded:', pinsMap)
         }
       } catch (err) {
         console.error('Failed to fetch daily PINs:', err)

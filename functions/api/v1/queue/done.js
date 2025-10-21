@@ -1,4 +1,4 @@
-// Queue Done - Mark patient as done and advance queue
+// Complete clinic examination with PIN verification
 // POST /api/v1/queue/done
 // Body: { clinic, user, pin }
 
@@ -12,6 +12,13 @@ function jsonResponse(data, status = 200) {
   });
 }
 
+// Get current date in Qatar timezone
+function getQatarDate() {
+  const now = new Date();
+  const qatarTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Qatar' }));
+  return qatarTime.toISOString().split('T')[0];
+}
+
 export async function onRequestPost(context) {
   const { request, env } = context;
 
@@ -19,6 +26,7 @@ export async function onRequestPost(context) {
     const body = await request.json().catch(() => ({}));
     const { clinic, user, pin } = body;
 
+    // Validate required fields
     if (!clinic || !user) {
       return jsonResponse({
         success: false,
@@ -26,7 +34,15 @@ export async function onRequestPost(context) {
       }, 400);
     }
 
+    if (!pin) {
+      return jsonResponse({
+        success: false,
+        error: 'PIN required - proof of examination completion'
+      }, 400);
+    }
+
     const kv = env.KV_QUEUES;
+    const kvPins = env.KV_PINS;
     
     // Get user's queue entry
     const userKey = `queue:user:${clinic}:${user}`;
@@ -39,39 +55,43 @@ export async function onRequestPost(context) {
       }, 404);
     }
     
-    // Verify PIN (REQUIRED - proof of completion)
-    if (!pin) {
-      return jsonResponse({
-        success: false,
-        error: 'PIN required - proof of examination completion'
-      }, 400);
-    }
-    
     // Get today's PIN for this clinic
-    // Get current date in Qatar timezone
-    const now = new Date();
-    const qatarTime = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Qatar' }));
-    const today = qatarTime.toISOString().split('T')[0];
+    const today = getQatarDate();
     const pinKey = `pins:daily:${today}`;
-    const dailyPins = await env.KV_PINS.get(pinKey, 'json');
+    const dailyPins = await kvPins.get(pinKey, 'json');
     
-    if (!dailyPins || !dailyPins[clinic]) {
+    if (!dailyPins) {
       return jsonResponse({
         success: false,
-        error: 'PIN not configured for this clinic'
+        error: 'Daily PINs not generated yet'
       }, 500);
     }
     
-    // Extract PIN value (dailyPins is the pins object directly)
+    // Get expected PIN for this clinic
     const expectedPin = dailyPins[clinic];
     
-    // Verify PIN matches
-    if (String(pin).trim() !== String(expectedPin).trim()) {
+    if (!expectedPin) {
       return jsonResponse({
         success: false,
-        error: 'Invalid PIN - examination not completed'
+        error: `PIN not configured for clinic: ${clinic}`
+      }, 500);
+    }
+    
+    // Verify PIN matches - STRICT COMPARISON
+    const inputPin = String(pin).trim();
+    const correctPin = String(expectedPin).trim();
+    
+    if (inputPin !== correctPin) {
+      console.log(`❌ PIN MISMATCH: Expected "${correctPin}", Got "${inputPin}" for clinic ${clinic}`);
+      return jsonResponse({
+        success: false,
+        error: 'Invalid PIN - examination not completed',
+        expected: correctPin,
+        received: inputPin
       }, 403);
     }
+    
+    console.log(`✅ PIN VERIFIED: "${inputPin}" for clinic ${clinic}`);
     
     // Mark as done with detailed timestamps and duration
     const exitNow = new Date();
@@ -79,7 +99,8 @@ export async function onRequestPost(context) {
     userQueue.done_at = exitNow.toISOString();
     userQueue.exit_date = exitNow.toISOString().split('T')[0];
     userQueue.exit_time = exitNow.toISOString();
-    userQueue.pin_used = String(pin);
+    userQueue.pin_used = inputPin;
+    userQueue.pin_verified = true;
     
     // Calculate duration in minutes
     if (userQueue.entry_time) {
@@ -94,40 +115,18 @@ export async function onRequestPost(context) {
     
     // Update queue status - set current to this user's number
     const statusKey = `queue:status:${clinic}`;
-    const status = await kv.get(statusKey, { type: 'json' }) || { current: null, served: [] };
+    const status = await kv.get(statusKey, 'json') || { current: null, served: [] };
     
     status.current = userQueue.number;
+    if (!status.served) status.served = [];
     status.served.push({
       number: userQueue.number,
       user: user,
-      done_at: userQueue.done_at
+      completed_at: exitNow.toISOString(),
+      duration_minutes: userQueue.duration_minutes || 0
     });
     
     await kv.put(statusKey, JSON.stringify(status), {
-      expirationTtl: 86400
-    });
-    
-    // Store completion proof (unlock next clinic)
-    const completionKey = `completion:${user}:${clinic}`;
-    await kv.put(completionKey, JSON.stringify({
-      clinic: clinic,
-      user: user,
-      number: userQueue.number,
-      pin: pin || 'NO_PIN',
-      completed_at: new Date().toISOString()
-    }), {
-      expirationTtl: 86400
-    });
-    
-    // Log event
-    const eventKey = `event:${clinic}:${Date.now()}`;
-    await env.KV_EVENTS.put(eventKey, JSON.stringify({
-      type: 'STEP_DONE',
-      clinic: clinic,
-      user: user,
-      number: userQueue.number,
-      timestamp: new Date().toISOString()
-    }), {
       expirationTtl: 3600 // 1 hour
     });
 
@@ -140,13 +139,15 @@ export async function onRequestPost(context) {
       duration_minutes: userQueue.duration_minutes || 0,
       entry_time: userQueue.entry_time,
       exit_time: userQueue.exit_time,
+      pin_verified: true,
       next_clinic_unlocked: true
     });
 
   } catch (error) {
+    console.error('Queue done error:', error);
     return jsonResponse({
       success: false,
-      error: error.message
+      error: error.message || 'Internal server error'
     }, 500);
   }
 }

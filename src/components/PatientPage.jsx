@@ -218,55 +218,30 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
       const currentIdx = stations.findIndex(s => s.id === station.id)
       const hasNextClinic = currentIdx >= 0 && currentIdx + 1 < stations.length
       
-      // إذا كانت هناك عيادة تالية، ندخلها تلقائياً
+      // إذا كانت هناك عيادة تالية، نفتحها فقط (بدون دخول تلقائي)
       if (hasNextClinic) {
-        const nextClinicId = stations[currentIdx + 1].id
+        // تحديث العيادات: إكمال الحالية وفتح التالية
+        setStations(prev => prev.map((s, i) => {
+          if (i === currentIdx) {
+            // العيادة الحالية - مكتملة
+            return { ...s, status: 'completed', exitTime: new Date() }
+          } else if (i === currentIdx + 1) {
+            // العيادة التالية - مفتوحة لكن غير مدخولة (يجب على المراجع الدخول يدوياً)
+            return { ...s, status: 'ready', isEntered: false }
+          }
+          return s
+        }))
         
-        try {
-          // دخول تلقائي للعيادة التالية
-          const enterRes = await api.enterQueue(nextClinicId, patientData.id, true)
-          const nextTicket = enterRes?.display_number || enterRes?.number || 1
-          
-          // تحديث جميع العيادات دفعة واحدة
-          setStations(prev => prev.map((s, i) => {
-            if (i === currentIdx) {
-              // العيادة الحالية - مكتملة
-              return { ...s, status: 'completed', exitTime: new Date() }
-            } else if (i === currentIdx + 1) {
-              // العيادة التالية - جاهزة ومفتوحة
-              return {
-                ...s,
-                status: 'ready',
-                current: enterRes?.current || 0,
-                yourNumber: nextTicket,
-                ahead: enterRes?.ahead || 0,
-                isEntered: true
-              }
-            }
-            return s
-          }))
-          
-          setActiveTicket({ clinicId: nextClinicId, ticket: nextTicket })
-          
-          // إطلاق إشعار "حان دورك" للعيادة التالية
-          const nextClinicName = stations[currentIdx + 1]?.name || 'العيادة التالية'
-          eventBus.emit('queue:your_turn', {
-            patientId: patientData.id,
-            clinicName: nextClinicName,
-            number: nextTicket
-          })
-        } catch (err) {
-          console.error('Failed to auto-enter next clinic:', err)
-          // في حالة الفشل، نفتح العيادة بدون دخول
-          setStations(prev => prev.map((s, i) => {
-            if (i === currentIdx) {
-              return { ...s, status: 'completed', exitTime: new Date() }
-            } else if (i === currentIdx + 1) {
-              return { ...s, status: 'ready', yourNumber: 1, isEntered: true }
-            }
-            return s
-          }))
-        }
+        // إشعار بفتح العيادة التالية
+        const nextClinicName = stations[currentIdx + 1]?.nameAr || 'العيادة التالية'
+        setCurrentNotice({
+          type: 'next_clinic',
+          message: language === 'ar' 
+            ? `✅ تم إكمال الفحص. يرجى الدخول إلى ${nextClinicName}`
+            : `✅ Examination completed. Please enter ${nextClinicName}`,
+          clinic: nextClinicName
+        })
+        setTimeout(() => setCurrentNotice(null), 8000)
       } else {
         // لا توجد عيادة تالية - فقط نكمل العيادة الحالية
         setStations(prev => prev.map((s, i) => 

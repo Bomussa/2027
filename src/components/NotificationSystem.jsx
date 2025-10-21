@@ -1,15 +1,18 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 
 /**
- * NotificationSystem - نظام الإشعارات البسيط والواضح
+ * NotificationSystem - نظام الإشعارات البسيط والواضح مع إرشادات الموقع
  * 
  * يظهر فقط في الوقت المناسب ولا يعيق رؤية المحتوى
+ * يوفر إرشادات واضحة لموقع العيادة وكيفية الوصول إليها
  */
 export default function NotificationSystem({ patientId, currentClinic, yourNumber, currentServing }) {
   const [notification, setNotification] = useState(null);
   const [hasPermission, setHasPermission] = useState(false);
+  const [hasShownLocationGuide, setHasShownLocationGuide] = useState(false);
   const audioContextRef = useRef(null);
   const lastPositionRef = useRef(null);
+  const lastClinicRef = useRef(null);
 
   // إعداد Audio Context
   useEffect(() => {
@@ -85,6 +88,79 @@ export default function NotificationSystem({ patientId, currentClinic, yourNumbe
       console.warn('⚠️ خطأ في تشغيل الصوت:', e);
     }
   }, []);
+
+  // الحصول على إرشادات الموقع للعيادة
+  const getLocationGuide = useCallback((clinic) => {
+    if (!clinic) return null;
+
+    const floor = clinic.floor || '';
+    const floorCode = clinic.floorCode || '';
+    const clinicName = clinic.nameAr || clinic.name || '';
+
+    // إرشادات حسب الطابق
+    if (floor === 'الميزانين' || floorCode === 'M') {
+      return {
+        icon: '🏢',
+        title: `📍 ${clinicName}`,
+        message: `يرجى التوجه إلى طابق الميزانين عن طريق المصعد بالضغط على حرف M`,
+        bgColor: 'bg-blue-600'
+      };
+    } else if (floor === 'الطابق الثاني' || floorCode === '2') {
+      return {
+        icon: '🏢',
+        title: `📍 ${clinicName}`,
+        message: `يرجى التوجه إلى الطابق الثاني عن طريق المصعد بالضغط على رقم 2`,
+        bgColor: 'bg-blue-600'
+      };
+    } else if (floor === 'الطابق الثالث' || floorCode === '3') {
+      return {
+        icon: '🏢',
+        title: `📍 ${clinicName}`,
+        message: `يرجى التوجه إلى الطابق الثالث عن طريق المصعد بالضغط على رقم 3`,
+        bgColor: 'bg-blue-600'
+      };
+    } else if (floor === 'الطابق الأرضي' || floorCode === 'G') {
+      return {
+        icon: '🏢',
+        title: `📍 ${clinicName}`,
+        message: `يرجى التوجه إلى الطابق الأرضي عن طريق المصعد بالضغط على حرف G`,
+        bgColor: 'bg-blue-600'
+      };
+    }
+
+    return null;
+  }, []);
+
+  // عرض دليل الموقع عند تغيير العيادة
+  useEffect(() => {
+    if (!currentClinic) return;
+
+    // إذا تغيرت العيادة، نعرض دليل الموقع
+    if (lastClinicRef.current !== currentClinic.id) {
+      lastClinicRef.current = currentClinic.id;
+      setHasShownLocationGuide(false);
+
+      const locationGuide = getLocationGuide(currentClinic);
+      if (locationGuide) {
+        setNotification({
+          ...locationGuide,
+          priority: 'info',
+          isLocationGuide: true
+        });
+
+        playNotificationSound('normal');
+        setHasShownLocationGuide(true);
+
+        // إخفاء دليل الموقع بعد 12 ثانية
+        setTimeout(() => {
+          setNotification(prev => {
+            if (prev && prev.isLocationGuide) return null;
+            return prev;
+          });
+        }, 12000);
+      }
+    }
+  }, [currentClinic, getLocationGuide, playNotificationSound]);
 
   // حساب الموقع في الطابور
   const position = yourNumber && currentServing ? yourNumber - currentServing : null;
@@ -164,7 +240,10 @@ export default function NotificationSystem({ patientId, currentClinic, yourNumbe
       // إخفاء الإشعار تلقائياً
       const timeout = notif.priority === 'urgent' ? 10000 : 6000;
       setTimeout(() => {
-        setNotification(null);
+        setNotification(prev => {
+          if (prev && !prev.isLocationGuide) return null;
+          return prev;
+        });
       }, timeout);
     }
   }, [position, currentClinic, yourNumber, playNotificationSound, hasPermission]);
@@ -191,8 +270,12 @@ export default function NotificationSystem({ patientId, currentClinic, yourNumbe
           }}
         >
           <div className="flex-1">
-            <div className="font-black text-2xl mb-2" style={{ letterSpacing: '0.5px' }}>{notification.title}</div>
-            <div className="text-lg font-semibold opacity-100" style={{ letterSpacing: '0.3px' }}>{notification.message}</div>
+            <div className="font-black text-2xl mb-2" style={{ letterSpacing: '0.5px' }}>
+              {notification.title}
+            </div>
+            <div className="text-lg font-semibold opacity-100" style={{ letterSpacing: '0.3px' }}>
+              {notification.message}
+            </div>
           </div>
           <button
             onClick={() => setNotification(null)}

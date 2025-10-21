@@ -221,9 +221,14 @@ async function handleQueueStatus(url, env) {
 async function handleQueueDone(request, env) {
   try {
     const body = await request.json();
-    const { clinic, user, pin } = body;
+    const { clinic, user, pin, clinicId, patientId, ticket } = body;
 
-    if (!clinic || !user) {
+    // Support both formats
+    const clinicName = clinic || clinicId;
+    const userId = user || patientId;
+    const pinCode = pin || ticket;
+
+    if (!clinicName || !userId) {
       return jsonResponse({
         success: false,
         error: 'Missing clinic or user'
@@ -231,10 +236,10 @@ async function handleQueueDone(request, env) {
     }
 
     // Verify PIN if provided
-    if (pin) {
-      const pinKey = `pin:${clinic}`;
+    if (pinCode) {
+      const pinKey = `pin:${clinicName}`;
       const storedPin = await env.KV_PINS.get(pinKey);
-      if (storedPin && storedPin !== String(pin)) {
+      if (storedPin && storedPin !== String(pinCode)) {
         return jsonResponse({
           success: false,
           error: 'Invalid PIN'
@@ -243,11 +248,11 @@ async function handleQueueDone(request, env) {
     }
 
     // Get queue
-    const queueKey = `queue:list:${clinic}`;
+    const queueKey = `queue:list:${clinicName}`;
     const queueData = await env.KV_QUEUES.get(queueKey, { type: 'json' }) || [];
 
     // Remove from queue
-    const index = queueData.findIndex(e => e.user === user);
+    const index = queueData.findIndex(e => e.user === userId);
     if (index !== -1) {
       const entry = queueData.splice(index, 1)[0];
       entry.status = 'SERVED';
@@ -259,7 +264,7 @@ async function handleQueueDone(request, env) {
       });
 
       // Update status
-      const statusKey = `queue:status:${clinic}`;
+      const statusKey = `queue:status:${clinicName}`;
       const status = {
         current: queueData.length > 0 ? queueData[0].number : null,
         served: [entry]

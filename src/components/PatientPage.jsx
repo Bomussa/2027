@@ -470,11 +470,6 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
                         <p className="text-gray-400 text-sm">
                           {t('floor', language)}: {language === 'ar' ? station.floor : station.floorCode}
                         </p>
-                        {clinicPins[station.id] && (
-                          <p className="text-yellow-400 text-sm font-bold">
-                            PIN: {clinicPins[station.id]}
-                          </p>
-                        )}
                       </div>
                     </div>
                     <div className="text-right">

@@ -59,11 +59,14 @@ export async function onRequest(context) {
     // Generate unique number (guaranteed unique)
     const uniqueNumber = generateUniqueNumber();
     
-    // Store user entry
+    // Store user entry with detailed timestamps
+    const now = new Date();
     const userEntry = {
       number: uniqueNumber,
       status: 'WAITING',
-      entered_at: new Date().toISOString(),
+      entered_at: now.toISOString(),
+      entry_date: now.toISOString().split('T')[0],
+      entry_time: now.toISOString(),
       user: user,
       clinic: clinic
     };

@@ -237,7 +237,12 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
       }
 
       // استدعاء API للخروج
-      await api.queueDone(station.id, patientData.id, pinInput)
+      const exitResult = await api.queueDone(station.id, patientData.id, pinInput)
+      
+      // Log duration for analytics
+      if (exitResult && exitResult.duration_minutes) {
+        console.log(`✅ Clinic ${station.id} completed in ${exitResult.duration_minutes} minutes`)
+      }
 
       // تحديد العيادة التالية
       const currentIdx = stations.findIndex(s => s.id === station.id)

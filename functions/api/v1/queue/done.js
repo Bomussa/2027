@@ -71,9 +71,20 @@ export async function onRequestPost(context) {
       }, 403);
     }
     
-    // Mark as done
+    // Mark as done with detailed timestamps and duration
+    const exitNow = new Date();
     userQueue.status = 'DONE';
-    userQueue.done_at = new Date().toISOString();
+    userQueue.done_at = exitNow.toISOString();
+    userQueue.exit_date = exitNow.toISOString().split('T')[0];
+    userQueue.exit_time = exitNow.toISOString();
+    userQueue.pin_used = String(pin);
+    
+    // Calculate duration in minutes
+    if (userQueue.entry_time) {
+      const entryTime = new Date(userQueue.entry_time);
+      const durationMs = exitNow - entryTime;
+      userQueue.duration_minutes = Math.round(durationMs / 60000);
+    }
     
     await kv.put(userKey, JSON.stringify(userQueue), {
       expirationTtl: 86400
@@ -124,6 +135,9 @@ export async function onRequestPost(context) {
       user: user,
       number: userQueue.number,
       status: 'DONE',
+      duration_minutes: userQueue.duration_minutes || 0,
+      entry_time: userQueue.entry_time,
+      exit_time: userQueue.exit_time,
       next_clinic_unlocked: true
     });
 

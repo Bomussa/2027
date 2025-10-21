@@ -71,6 +71,31 @@ class ApiService {
       }
 
       // Offline fallbacks
+      if (endpoint === `${API_VERSION}/pin/status` && method === 'GET') {
+        // Return mock PINs when offline
+        return {
+          ok: true,
+          data: {
+            success: true,
+            pins: {
+              lab: { pin: '75', clinic: 'lab', active: true },
+              xray: { pin: '68', clinic: 'xray', active: true },
+              vitals: { pin: '41', clinic: 'vitals', active: true },
+              ecg: { pin: '98', clinic: 'ecg', active: true },
+              audio: { pin: '66', clinic: 'audio', active: true },
+              eyes: { pin: '37', clinic: 'eyes', active: true },
+              internal: { pin: '94', clinic: 'internal', active: true },
+              ent: { pin: '36', clinic: 'ent', active: true },
+              surgery: { pin: '81', clinic: 'surgery', active: true },
+              dental: { pin: '55', clinic: 'dental', active: true },
+              psychiatry: { pin: '38', clinic: 'psychiatry', active: true },
+              derma: { pin: '71', clinic: 'derma', active: true },
+              bones: { pin: '31', clinic: 'bones', active: true }
+            }
+          }
+        }
+      }
+      
       if (endpoint === `${API_VERSION}/queue/enter` && method === 'POST' && body?.user) {
         const id = Date.now().toString(36)
         const data = {

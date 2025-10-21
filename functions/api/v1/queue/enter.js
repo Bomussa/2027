@@ -120,18 +120,49 @@ export async function onRequest(context) {
       status = memoryStatus.get(statusKey) || { current: null, served: [] };
     }
     
-    // Calculate how many are ahead
+    // Calculate how many are ahead (CRITICAL: Most important feature)
     let ahead = 0;
+    let activeQueue = [];
+    
+    // Get only WAITING patients (exclude DONE)
+    if (kv) {
+      try {
+        // Check each user's status from KV
+        const activePromises = queueList.map(async (item) => {
+          const itemUserKey = `queue:user:${clinic}:${item.user}`;
+          const itemData = await kv.get(itemUserKey, 'json');
+          if (itemData && itemData.status !== 'DONE') {
+            return item;
+          }
+          return null;
+        });
+        activeQueue = (await Promise.all(activePromises)).filter(Boolean);
+      } catch (e) {
+        // Fallback: assume all are active
+        activeQueue = queueList;
+      }
+    } else {
+      // Memory fallback: check status
+      activeQueue = queueList.filter(item => {
+        const itemUserKey = `queue:user:${clinic}:${item.user}`;
+        const itemData = memoryUsers.get(itemUserKey);
+        return !itemData || itemData.status !== 'DONE';
+      });
+    }
+    
     if (status.current) {
-      // Count how many in the list have numbers less than ours and greater than current
-      ahead = queueList.filter(item => 
+      // Count how many active patients are ahead of us
+      ahead = activeQueue.filter(item => 
         item.number < uniqueNumber && 
         (!status.current || item.number > status.current)
       ).length;
     } else {
-      // No one is being served yet, count all before us
-      ahead = queueList.filter(item => item.number < uniqueNumber).length;
+      // No one is being served yet, count all active before us
+      ahead = activeQueue.filter(item => item.number < uniqueNumber).length;
     }
+    
+    // CRITICAL: Display number = position in active queue
+    const myPositionInQueue = activeQueue.filter(item => item.number <= uniqueNumber).length;
     
     return new Response(JSON.stringify({
       success: true,
@@ -140,7 +171,8 @@ export async function onRequest(context) {
       number: uniqueNumber,
       status: 'WAITING',
       ahead: ahead,
-      display_number: queueList.length // For display purposes
+      display_number: myPositionInQueue, // CORRECT: Your actual position in queue
+      total_waiting: activeQueue.length // Total active patients
     }), {
       status: 200,
       headers: { 

@@ -479,6 +479,96 @@ async function handleAdminStatus(env) {
 }
 
 // ==========================================
+// SSE Handler for Real-time Notifications
+// ==========================================
+async function handleSSE(url, env, ctx) {
+  const user = url.searchParams.get('user');
+  const clinic = url.searchParams.get('clinic');
+
+  if (!user && !clinic) {
+    return jsonResponse({ error: 'user or clinic parameter required' }, 400);
+  }
+
+  // Create SSE stream
+  let controller;
+  const stream = new ReadableStream({
+    start(c) {
+      controller = c;
+      // Send initial connection message
+      const msg = `data: ${JSON.stringify({
+        type: 'CONNECTED',
+        user,
+        clinic,
+        timestamp: new Date().toISOString()
+      })}\n\n`;
+      controller.enqueue(new TextEncoder().encode(msg));
+    },
+    cancel() {
+      // Cleanup when connection closes
+    }
+  });
+
+  // Set up polling to check queue status and send notifications
+  if (user) {
+    ctx.waitUntil((async () => {
+      try {
+        // Poll every 5 seconds
+        for (let i = 0; i < 120; i++) { // 10 minutes max
+          await new Promise(resolve => setTimeout(resolve, 5000));
+          
+          // Get user's current queue status from KV
+          const userKey = `user:${user}:queue`;
+          const userData = await env.KV_QUEUES.get(userKey, { type: 'json' });
+          
+          if (userData && userData.clinic) {
+            const queueKey = `queue:${userData.clinic}`;
+            const queueData = await env.KV_QUEUES.get(queueKey, { type: 'json' });
+            
+            if (queueData) {
+              const current = queueData.current || 0;
+              const userNumber = userData.number || 0;
+              const position = userNumber - current;
+              
+              // Send notification at position 3, 2, 1
+              if (position === 3 || position === 2 || position === 1) {
+                const notification = {
+                  type: 'queue_update',
+                  position,
+                  clinic: userData.clinic,
+                  userNumber,
+                  current,
+                  message: position === 1 ? 'دورك الآن!' : position === 2 ? 'أنت الثاني - كن جاهزاً' : 'أنت الثالث - استعد',
+                  messageEn: position === 1 ? 'Your turn now!' : position === 2 ? 'You are second - be ready' : 'You are third - get ready',
+                  timestamp: new Date().toISOString()
+                };
+                
+                const msg = `event: queue_update\ndata: ${JSON.stringify(notification)}\n\n`;
+                try {
+                  controller.enqueue(new TextEncoder().encode(msg));
+                } catch (e) {
+                  break; // Connection closed
+                }
+              }
+            }
+          }
+        }
+      } catch (e) {
+        console.error('SSE polling error:', e);
+      }
+    })());
+  }
+
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      ...CORS_HEADERS
+    }
+  });
+}
+
+// ==========================================
 // Main Request Handler
 // ==========================================
 async function handleRequest(request, env) {
@@ -540,6 +630,10 @@ async function handleRequest(request, env) {
 
   if (path === '/api/v1/stats/dashboard') {
     return handleAdminStatus(env);
+  }
+
+  if (path === '/api/v1/events/stream') {
+    return handleSSE(url, env, ctx);
   }
 
   // 404 for unknown routes

@@ -145,7 +145,33 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
         if (idx >= 0 && idx + 1 < prev.length) {
           const next = [...prev]
           next[idx] = { ...next[idx], status: 'completed', exitTime: new Date() }
-          next[idx + 1] = { ...next[idx + 1], status: 'ready', yourNumber: 1 }
+          
+          // Fetch real queue data for next clinic
+          const nextClinicId = next[idx + 1].id
+          api.getQueueStatus(nextClinicId)
+            .then(queueData => {
+              setStations(current => current.map((s, i) => {
+                if (i === idx + 1) {
+                  return {
+                    ...s,
+                    status: 'ready',
+                    current: queueData.current || 0,
+                    yourNumber: (queueData.current || 0) + 1,
+                    ahead: queueData.waiting || 0,
+                    requiresPinExit: true
+                  }
+                }
+                return s
+              }))
+            })
+            .catch(err => {
+              console.error('Failed to fetch next clinic queue:', err)
+              // Fallback: just unlock next clinic
+              setStations(current => current.map((s, i) => 
+                i === idx + 1 ? { ...s, status: 'ready', yourNumber: 1 } : s
+              ))
+            })
+          
           return next
         }
         return prev.map(s => s.id === station.id ? { ...s, status: 'completed', exitTime: new Date() } : s)

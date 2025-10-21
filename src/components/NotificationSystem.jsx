@@ -22,6 +22,7 @@ export default function NotificationSystem({
   const hasShownInitialFloorGuide = useRef(false);
   const hasShownCompletionNotice = useRef(false);
   const hasShownWelcome = useRef(false);
+  const hasShownQueueExplanation = useRef(false);
 
   useEffect(() => {
     if ('Notification' in window && Notification.permission === 'default') {
@@ -72,6 +73,31 @@ export default function NotificationSystem({
     }
   }, []);
 
+  // إشعار تعريفي للدور - مرة واحدة
+  useEffect(() => {
+    if (!hasShownQueueExplanation.current && currentClinic && yourNumber !== null) {
+      hasShownQueueExplanation.current = true;
+      
+      setNotification({
+        icon: '📋',
+        title: 'نظام الدور',
+        message: 'رقمك: دورك في الطابور\nالحالي: من يُفحص الآن\nأمامك: عدد الأشخاص قبلك',
+        bgColor: 'bg-indigo-600',
+        priority: 'info',
+        isQueueExplanation: true
+      });
+      
+      playNotificationSound('normal');
+      
+      setTimeout(() => {
+        setNotification(prev => {
+          if (prev && prev.isQueueExplanation) return null;
+          return prev;
+        });
+      }, 15000);
+    }
+  }, [currentClinic, yourNumber, playNotificationSound]);
+
   // إشعار الترحيب
   useEffect(() => {
     if (!hasShownWelcome.current && patientId) {
@@ -93,7 +119,7 @@ export default function NotificationSystem({
           if (prev && prev.isWelcome) return null;
           return prev;
         });
-      }, 8000);
+      }, 15000);
     }
   }, [patientId, playNotificationSound]);
 
@@ -161,7 +187,7 @@ export default function NotificationSystem({
           if (prev && prev.isCompletionNotice) return null;
           return prev;
         });
-      }, 40000);
+      }, 15000);
     }
   }, [allStationsCompleted, playNotificationSound, hasPermission]);
 
@@ -184,7 +210,7 @@ export default function NotificationSystem({
           if (prev && prev.isFloorGuide) return null;
           return prev;
         });
-      }, 25000);
+      }, 15000);
     }
   }, [currentClinic, getFloorNotification, playNotificationSound]);
 
@@ -297,7 +323,7 @@ export default function NotificationSystem({
         });
       }
 
-      const timeout = notif.priority === 'urgent' ? 15000 : 8000;
+      const timeout = 15000; // كل الإشعارات 15 ثانية
       setTimeout(() => {
         setNotification(prev => {
           if (prev && !prev.isFloorGuide && !prev.isCompletionNotice && !prev.isWelcome) return null;

@@ -90,18 +90,13 @@ export default function NotificationSystem({
     }
   }, []);
 
-  // الحصول على إرشادات الموقع للطابق (مرة واحدة فقط لكل طابق)
+  // الحصول على إرشادات الموقع للطابق
   const getLocationGuide = useCallback((clinic) => {
     if (!clinic) return null;
 
     const floor = clinic.floor || '';
     const floorCode = clinic.floorCode || '';
-
-    // التحقق من أننا لم نعرض إشعار هذا الطابق من قبل
     const currentFloor = floor || floorCode;
-    if (lastFloorRef.current === currentFloor) {
-      return null; // لا نعرض إشعار الطابق مرة أخرى
-    }
 
     // إرشادات حسب الطابق
     if (floor === 'الميزانين' || floorCode === 'M') {

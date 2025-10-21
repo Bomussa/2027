@@ -9,6 +9,7 @@ import api from '../lib/api'
 import enhancedApi from '../lib/enhanced-api'
 import { ZFDTicketDisplay, ZFDBanner } from './ZFDTicketDisplay'
 import NotificationSystem from './NotificationSystem'
+import eventBus from '../core/event-bus'
 
 export function PatientPage({ patientData, onLogout, language, toggleLanguage }) {
   const [stations, setStations] = useState([])
@@ -202,6 +203,14 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
           }))
           
           setActiveTicket({ clinicId: nextClinicId, ticket: nextTicket })
+          
+          // إطلاق إشعار "حان دورك" للعيادة التالية
+          const nextClinicName = stations[currentIdx + 1]?.name || 'العيادة التالية'
+          eventBus.emit('queue:your_turn', {
+            patientId: patientData.id,
+            clinicName: nextClinicName,
+            number: nextTicket
+          })
         } catch (err) {
           console.error('Failed to auto-enter next clinic:', err)
           // في حالة الفشل، نفتح العيادة بدون دخول

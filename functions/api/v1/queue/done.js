@@ -39,20 +39,36 @@ export async function onRequestPost(context) {
       }, 404);
     }
     
-    // Verify PIN if provided (proof of completion)
-    if (pin) {
-      // Get today's PIN for this clinic
-      const pinKey = `pin:daily:${new Date().toISOString().split('T')[0]}`;
-      const dailyPins = await env.KV_PINS.get(pinKey, 'json');
-      
-      if (dailyPins && dailyPins.pins && dailyPins.pins[clinic]) {
-        if (pin !== dailyPins.pins[clinic]) {
-          return jsonResponse({
-            success: false,
-            error: 'Invalid PIN - examination not completed'
-          }, 403);
-        }
-      }
+    // Verify PIN (REQUIRED - proof of completion)
+    if (!pin) {
+      return jsonResponse({
+        success: false,
+        error: 'PIN required - proof of examination completion'
+      }, 400);
+    }
+    
+    // Get today's PIN for this clinic
+    const pinKey = `pin:daily:${new Date().toISOString().split('T')[0]}`;
+    const dailyPins = await env.KV_PINS.get(pinKey, 'json');
+    
+    if (!dailyPins || !dailyPins.pins || !dailyPins.pins[clinic]) {
+      return jsonResponse({
+        success: false,
+        error: 'PIN not configured for this clinic'
+      }, 500);
+    }
+    
+    // Extract PIN value (handle both string and object formats)
+    const expectedPin = typeof dailyPins.pins[clinic] === 'object' 
+      ? dailyPins.pins[clinic].pin 
+      : dailyPins.pins[clinic];
+    
+    // Verify PIN matches
+    if (String(pin).trim() !== String(expectedPin).trim()) {
+      return jsonResponse({
+        success: false,
+        error: 'Invalid PIN - examination not completed'
+      }, 403);
     }
     
     // Mark as done

@@ -187,7 +187,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
       }
 
       // استدعاء API للخروج
-      await api.queueDone(station.id, patientData.id, pinInput)
+      await api.clinicExit(patientData.id, station.id, pinInput)
 
       // تحديد العيادة التالية
       const currentIdx = stations.findIndex(s => s.id === station.id)

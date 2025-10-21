@@ -474,6 +474,86 @@ async function handleCallNext(request, env) {
   }
 }
 
+// Clinic Exit with PIN
+async function handleClinicExit(request, env) {
+  try {
+    const body = await request.json();
+    const { patientId, clinicId, pin } = body;
+
+    if (!patientId || !clinicId || !pin) {
+      return jsonResponse({
+        success: false,
+        error: 'Missing required fields'
+      }, 400);
+    }
+
+    // Verify PIN
+    const pinKey = `pin:${clinicId}`;
+    const storedPin = await env.KV_PINS.get(pinKey);
+
+    if (!storedPin || storedPin !== pin) {
+      return jsonResponse({
+        success: false,
+        error: 'Invalid PIN'
+      }, 403);
+    }
+
+    // Get patient route
+    const routeKey = `route:${patientId}`;
+    const routeData = await env.KV_ROUTES.get(routeKey, { type: 'json' });
+
+    if (!routeData) {
+      return jsonResponse({
+        success: false,
+        error: 'Patient route not found'
+      }, 404);
+    }
+
+    // Update station status
+    const stationIndex = routeData.stations.findIndex(s => s.id === clinicId);
+    if (stationIndex === -1) {
+      return jsonResponse({
+        success: false,
+        error: 'Clinic not found in route'
+      }, 404);
+    }
+
+    const station = routeData.stations[stationIndex];
+    station.status = 'completed';
+    station.exitTime = new Date().toISOString();
+
+    // Unlock next station
+    if (stationIndex + 1 < routeData.stations.length) {
+      routeData.stations[stationIndex + 1].status = 'ready';
+    }
+
+    // Save updated route
+    await env.KV_ROUTES.put(routeKey, JSON.stringify(routeData), {
+      expirationTtl: 86400
+    });
+
+    // Remove from queue
+    const queueKey = `queue:list:${clinicId}`;
+    const queueData = await env.KV_QUEUES.get(queueKey, { type: 'json' }) || [];
+    const updatedQueue = queueData.filter(e => e.user !== patientId);
+    await env.KV_QUEUES.put(queueKey, JSON.stringify(updatedQueue), {
+      expirationTtl: 86400
+    });
+
+    return jsonResponse({
+      success: true,
+      message: 'Clinic exit successful',
+      route: routeData
+    });
+
+  } catch (error) {
+    return jsonResponse({
+      success: false,
+      error: error.message
+    }, 500);
+  }
+}
+
 // PIN Status
 async function handlePinStatus(env) {
   try {
@@ -765,6 +845,10 @@ async function handleRequest(request, env) {
 
   if (path === '/api/v1/path/choose' && request.method === 'POST') {
     return handlePathChoose(request, env);
+  }
+
+  if (path === '/api/v1/clinic/exit' && request.method === 'POST') {
+    return handleClinicExit(request, env);
   }
 
   if (path === '/api/v1/admin/status') {

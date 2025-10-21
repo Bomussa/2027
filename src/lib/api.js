@@ -149,6 +149,23 @@ class ApiService {
   }
 
   /**
+   * الخروج من العيادة بـ PIN
+   * Backend: POST /api/v1/clinic/exit
+   * Body: { patientId, clinicId, pin }
+   * Response: { success, message, route }
+   */
+  async clinicExit(patientId, clinicId, pin) {
+    return this.request(`${API_VERSION}/clinic/exit`, {
+      method: 'POST',
+      body: JSON.stringify({
+        patientId,
+        clinicId,
+        pin: String(pin)
+      })
+    })
+  }
+
+  /**
    * استدعاء المراجع التالي (للإدارة)
    * Backend: POST /api/v1/queue/call
    * Body: { clinic }

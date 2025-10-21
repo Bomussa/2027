@@ -531,7 +531,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
                         <Button
                           variant="gradientSecondary"
                           onClick={() => handleClinicExit(station)}
-                          disabled={loading || selectedStation?.id !== station.id || !pinInput.trim()}
+                          disabled={loading || !pinInput.trim()}
                           title={t('exitClinic', language)}
                           data-test="exit-clinic-btn"
                         >

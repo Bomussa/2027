@@ -3,7 +3,8 @@ import { Card, CardContent, CardHeader, CardTitle } from './Card'
 import { Button } from './Button'
 import { Input } from './Input'
 import { Lock, Unlock, Clock, Globe, LogIn, LogOut } from 'lucide-react'
-import { getMedicalPathway, calculateWaitTime, examTypes, formatTime } from '../lib/utils'
+import { calculateWaitTime, examTypes, formatTime } from '../lib/utils'
+import { getDynamicMedicalPathway } from '../lib/dynamic-pathways'
 import { t } from '../lib/i18n'
 import api from '../lib/api'
 import enhancedApi from '../lib/enhanced-api'
@@ -49,7 +50,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
 
   useEffect(() => {
     // Get stations for the patient's exam type and gender
-    const examStations = getMedicalPathway(patientData.queueType, patientData.gender)
+    const examStations = getDynamicMedicalPathway(patientData.queueType, patientData.gender)
     
     // الدخول التلقائي للعيادة الأولى
     const initialStations = examStations.map((station, index) => ({

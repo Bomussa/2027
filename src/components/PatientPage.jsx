@@ -119,6 +119,31 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     loadPathway()
   }, [patientData.queueType, patientData.gender])
 
+  // دخول يدوي لأي عيادة
+  const handleEnterClinic = async (station) => {
+    try {
+      setLoading(true)
+      const res = await api.enterQueue(station.id, patientData.id, true)
+      const ticket = res?.display_number || res?.number || 1
+      
+      setActiveTicket({ clinicId: station.id, ticket })
+      setStations(prev => prev.map(s => s.id === station.id ? {
+        ...s,
+        current: res?.current || 0,
+        yourNumber: ticket,
+        ahead: res?.ahead || 0,
+        status: 'ready',
+        isEntered: true
+      } : s))
+      
+      setLoading(false)
+    } catch (e) {
+      console.error('Enter clinic failed:', e)
+      alert(language === 'ar' ? 'فشل الدخول للعيادة. الرجاء المحاولة مرة أخرى.' : 'Failed to enter clinic. Please try again.')
+      setLoading(false)
+    }
+  }
+
   // دخول تلقائي للعيادة الأولى
   const handleAutoEnterFirstClinic = async (station) => {
     try {
@@ -480,6 +505,21 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
                       <div className="text-gray-400 text-sm">{t('ahead', language)}</div>
                     </div>
                   </div>
+
+                  {station.status === 'ready' && !station.isEntered && (
+                    <div className="mt-4 pt-4 border-t border-gray-600">
+                      <Button
+                        variant="gradientPrimary"
+                        onClick={() => handleEnterClinic(station)}
+                        disabled={loading}
+                        className="w-full"
+                        data-test="enter-clinic-btn"
+                      >
+                        <LogIn className="icon icon-md me-2" />
+                        {language === 'ar' ? 'دخول العيادة' : 'Enter Clinic'}
+                      </Button>
+                    </div>
+                  )}
 
                   {station.status === 'ready' && station.isEntered && (
                     <div className="mt-4 pt-4 border-t border-gray-600 space-y-3">

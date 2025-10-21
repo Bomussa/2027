@@ -15,6 +15,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
   const [pinInput, setPinInput] = useState('')
   const [selectedStation, setSelectedStation] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [clinicPins, setClinicPins] = useState({})
   const [activeTicket, setActiveTicket] = useState(null)
   const [currentNotice, setCurrentNotice] = useState(null)
   const [routeWithZFD, setRouteWithZFD] = useState(null)
@@ -95,12 +96,22 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
 
   const handleClinicEnter = async (station) => {
     try {
+      // Request PIN from staff before entering
+      const pin = prompt(language === 'ar' ? 'أدخل PIN العيادة (من الموظف)' : 'Enter clinic PIN (from staff)')
+      if (!pin || !pin.trim()) {
+        alert(language === 'ar' ? 'PIN مطلوب' : 'PIN required')
+        return
+      }
+      
       setLoading(true)
       // Use the correct API endpoint: POST /api/v1/queue/enter
-      const res = await api.enterQueue(station.id, patientData.id)
+      const res = await api.enterQueue(station.id, patientData.id, pin)
       // Backend returns: { success, clinic, user, number, status, ahead, display_number }
       const ticket = res?.display_number || res?.number
       if (ticket) {
+        // Save PIN for this clinic
+        setClinicPins(prev => ({ ...prev, [station.id]: pin }))
+        
         setActiveTicket({ clinicId: station.id, ticket })
         setStations(prev => prev.map(s => s.id === station.id ? {
           ...s,
@@ -138,7 +149,12 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
       }
 
       // Use the correct API endpoint: POST /api/v1/queue/done
-      await api.queueDone(station.id, patientData.id, ticket)
+      const clinicPin = clinicPins[station.id]
+      if (!clinicPin) {
+        alert('خطأ: لم يتم العثور على PIN للعيادة')
+        return
+      }
+      await api.queueDone(station.id, patientData.id, clinicPin)
 
       // Mark station completed and move to next
       setStations(prev => {

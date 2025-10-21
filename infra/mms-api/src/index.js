@@ -675,6 +675,42 @@ async function handleRouteCreate(request, env) {
   }
 }
 
+// Route Get - جلب مسار المراجع المحفوظ
+async function handleRouteGet(request, env) {
+  try {
+    const url = new URL(request.url);
+    const patientId = url.searchParams.get('patientId');
+
+    if (!patientId) {
+      return jsonResponse({
+        success: false,
+        error: 'Missing patientId parameter'
+      }, 400);
+    }
+
+    const routeKey = `route:${patientId}`;
+    const routeData = await env.KV_QUEUES.get(routeKey, { type: 'json' });
+
+    if (!routeData) {
+      return jsonResponse({
+        success: false,
+        error: 'Route not found'
+      }, 404);
+    }
+
+    return jsonResponse({
+      success: true,
+      route: routeData
+    });
+
+  } catch (error) {
+    return jsonResponse({
+      success: false,
+      error: error.message
+    }, 500);
+  }
+}
+
 // Path Choose
 async function handlePathChoose(request, env) {
   try {
@@ -892,6 +928,10 @@ async function handleRequest(request, env) {
 
   if (path === '/api/v1/route/create' && request.method === 'POST') {
     return handleRouteCreate(request, env);
+  }
+
+  if (path === '/api/v1/route/get' && request.method === 'GET') {
+    return handleRouteGet(request, env);
   }
 
   if (path === '/api/v1/path/choose' && request.method === 'POST') {

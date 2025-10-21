@@ -52,7 +52,36 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     // Get stations for the patient's exam type and gender with dynamic weighting
     const loadPathway = async () => {
       try {
-        const examStations = await getDynamicMedicalPathway(patientData.queueType, patientData.gender)
+        let examStations = null
+        
+        // محاولة جلب المسار المحفوظ أولاً
+        try {
+          const savedRoute = await api.getRoute(patientData.id)
+          if (savedRoute && savedRoute.success && savedRoute.route && savedRoute.route.stations) {
+            examStations = savedRoute.route.stations
+            console.log('✅ Loaded saved route from backend')
+          }
+        } catch (err) {
+          console.log('ℹ️ No saved route found, creating new one')
+        }
+        
+        // إذا لم يوجد مسار محفوظ، احسب مسار جديد
+        if (!examStations) {
+          examStations = await getDynamicMedicalPathway(patientData.queueType, patientData.gender)
+          
+          // حفظ المسار الجديد في Backend
+          try {
+            await api.createRoute(
+              patientData.id,
+              patientData.queueType,
+              patientData.gender,
+              examStations
+            )
+            console.log('✅ Saved new route to backend')
+          } catch (err) {
+            console.error('❌ Failed to save route:', err)
+          }
+        }
         
         // الدخول التلقائي للعيادة الأولى
         const initialStations = examStations.map((station, index) => ({
@@ -65,18 +94,6 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
         }))
         
         setStations(initialStations)
-        
-        // حفظ المسار في Backend
-        try {
-          await api.createRoute(
-            patientData.id,
-            patientData.queueType,
-            patientData.gender,
-            examStations
-          )
-        } catch (err) {
-          console.error('Failed to save route:', err)
-        }
         
         // دخول تلقائي للعيادة الأولى
         if (examStations.length > 0) {

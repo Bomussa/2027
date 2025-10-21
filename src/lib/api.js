@@ -231,6 +231,15 @@ class ApiService {
   }
 
   /**
+   * جلب مسار المراجع المحفوظ
+   * Backend: GET /api/v1/route/get?patientId=xxx
+   * Response: { success, route }
+   */
+  async getRoute(patientId) {
+    return this.request(`${API_VERSION}/route/get?patientId=${patientId}`)
+  }
+
+  /**
    * اختيار المسار الطبي
    * Backend: GET /api/v1/path/choose
    * Response: { success, path: [...] }

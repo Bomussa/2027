@@ -49,59 +49,26 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
   }, [])
 
   useEffect(() => {
-    // جلب المسار الديناميكي من Backend
-    const loadDynamicPathway = async () => {
-      try {
-        // محاولة جلب المسار من Backend
-        const pathwayResponse = await enhancedApi.choosePath()
-        let examStations = []
-        
-        if (pathwayResponse && pathwayResponse.pathway) {
-          // Backend أرجع مسار ديناميكي
-          examStations = pathwayResponse.pathway
-        } else {
-          // Fallback: استخدام المسار الثابت
-          examStations = getDynamicMedicalPathway(patientData.queueType, patientData.gender)
-        }
-        
-        // الدخول التلقائي للعيادة الأولى
-        const initialStations = examStations.map((station, index) => ({
-          ...station,
-          status: index === 0 ? 'ready' : 'locked',
-          current: 0,
-          yourNumber: 0,
-          ahead: 0,
-          isEntered: false
-        }))
-        
-        setStations(initialStations)
-        
-        // دخول تلقائي للعيادة الأولى
-        if (examStations.length > 0) {
-          const firstClinic = examStations[0]
-          handleAutoEnterFirstClinic(firstClinic)
-        }
-      } catch (error) {
-        console.error('Failed to load dynamic pathway:', error)
-        // Fallback: استخدام المسار الثابت
-        const examStations = getDynamicMedicalPathway(patientData.queueType, patientData.gender)
-        const initialStations = examStations.map((station, index) => ({
-          ...station,
-          status: index === 0 ? 'ready' : 'locked',
-          current: 0,
-          yourNumber: 0,
-          ahead: 0,
-          isEntered: false
-        }))
-        setStations(initialStations)
-        
-        if (examStations.length > 0) {
-          handleAutoEnterFirstClinic(examStations[0])
-        }
-      }
-    }
+    // Get stations for the patient's exam type and gender
+    const examStations = getDynamicMedicalPathway(patientData.queueType, patientData.gender)
     
-    loadDynamicPathway()
+    // الدخول التلقائي للعيادة الأولى
+    const initialStations = examStations.map((station, index) => ({
+      ...station,
+      status: index === 0 ? 'ready' : 'locked',
+      current: 0,
+      yourNumber: 0,
+      ahead: 0,
+      isEntered: false
+    }))
+    
+    setStations(initialStations)
+    
+    // دخول تلقائي للعيادة الأولى
+    if (examStations.length > 0) {
+      const firstClinic = examStations[0]
+      handleAutoEnterFirstClinic(firstClinic)
+    }
   }, [patientData.queueType, patientData.gender])
 
   // دخول تلقائي للعيادة الأولى

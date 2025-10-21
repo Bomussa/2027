@@ -58,31 +58,25 @@ class ApiService {
   }
 
   offlineFallback(endpoint, options = {}) {
-    // LIMITED OFFLINE FALLBACK - Only for display purposes
-    // CRITICAL: PIN verification MUST use backend only
+    // OFFLINE FALLBACK - Only when internet connection fails
+    // CRITICAL RULES:
+    // 1. NO write operations (POST/PUT/DELETE) - EVER
+    // 2. NO data storage in localStorage
+    // 3. NO mock data that could conflict with backend
+    // 4. ONLY return error messages for user awareness
+    
     try {
       const method = (options.method || 'GET').toUpperCase()
       
-      // ONLY allow read-only operations for display
-      if (endpoint === `${API_VERSION}/pin/status` && method === 'GET') {
-        // Return mock PINs ONLY for display (not for verification)
-        return {
-          ok: true,
-          data: {
-            success: true,
-            offline: true,
-            message: 'عرض فقط - يتطلب اتصال للتحقق',
-            pins: {}
-          }
-        }
-      }
-      
-      // BLOCK all write operations (enter, done, exit)
+      // BLOCK ALL write operations - require internet
       if (method === 'POST' || method === 'PUT' || method === 'DELETE') {
         return { ok: false }
       }
-
+      
+      // For read operations, return offline status only
+      // NO mock data to prevent conflicts
       return { ok: false }
+      
     } catch (e) {
       return { ok: false }
     }

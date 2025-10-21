@@ -174,6 +174,28 @@ class ApiService {
     return this.request(`${API_VERSION}/pin/status`)
   }
 
+  /**
+   * الحصول على جميع أكواد PIN النشطة
+   * Backend: GET /api/v1/pin/status
+   * Response: { success, pins: {...} }
+   */
+  async getActivePins(adminCode) {
+    const response = await this.request(`${API_VERSION}/pin/status`)
+    if (response.success && response.pins) {
+      // تحويل الكائن إلى مصفوفة للعرض
+      const pinsArray = Object.entries(response.pins).map(([clinicId, pinData]) => ({
+        id: clinicId,
+        clinicId: clinicId,
+        pin: pinData.pin || pinData,
+        code: clinicId,
+        status: pinData.active ? 'active' : 'used',
+        generatedAt: pinData.generatedAt
+      }))
+      return { success: true, pins: pinsArray }
+    }
+    return { success: false, pins: [] }
+  }
+
   // ==========================================
   // Path APIs
   // ==========================================

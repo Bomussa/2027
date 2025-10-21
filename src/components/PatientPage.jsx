@@ -215,6 +215,116 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     return language === 'ar' ? exam.nameAr : exam.name
   }
 
+  // Check if all stations are completed
+  const allStationsCompleted = stations.length > 0 && stations.every(s => s.status === 'completed')
+
+  // If all completed, show completion screen (Screen 4)
+  if (allStationsCompleted) {
+    return (
+      <div className="min-h-screen p-4 flex items-center justify-center" data-test="completion-screen">
+        <div className="max-w-2xl mx-auto space-y-6 text-center">
+          {/* Logo */}
+          <img src="/logo.jpeg" alt="قيادة الخدمات الطبية" className="mx-auto w-32 h-32 object-contain rounded-full shadow-lg" />
+
+          {/* Success Icon */}
+          <div className="text-green-400">
+            <svg className="w-24 h-24 mx-auto" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+
+          {/* Completion Message */}
+          <Card className="bg-gradient-to-br from-green-900/30 to-blue-900/30 border-green-500/30">
+            <CardContent className="p-8 space-y-6">
+              <h1 className="text-3xl font-bold text-white">
+                {language === 'ar' ? '✅ تم إنهاء الفحص الطبي' : '✅ Medical Examination Completed'}
+              </h1>
+              
+              <div className="space-y-4 text-lg">
+                <p className="text-gray-300">
+                  {language === 'ar' 
+                    ? 'تهانينا! لقد أكملت جميع الفحوصات الطبية المطلوبة بنجاح'
+                    : 'Congratulations! You have successfully completed all required medical examinations'}
+                </p>
+
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-lg p-6 mt-6">
+                  <h2 className="text-2xl font-bold text-yellow-400 mb-4">
+                    {language === 'ar' ? '📋 الخطوة التالية' : '📋 Next Step'}
+                  </h2>
+                  <p className="text-xl text-white font-semibold">
+                    {language === 'ar'
+                      ? 'يرجى التوجه إلى استقبال اللجنة الطبية'
+                      : 'Please proceed to the Medical Committee Reception'}
+                  </p>
+                  <p className="text-gray-300 mt-3">
+                    {language === 'ar'
+                      ? 'الموقع: الطابق الأول - مكتب الاستقبال'
+                      : 'Location: First Floor - Reception Office'}
+                  </p>
+                </div>
+
+                {/* Summary */}
+                <div className="bg-gray-800/50 border border-gray-600 rounded-lg p-6 mt-6">
+                  <h3 className="text-xl font-bold text-white mb-4">
+                    {language === 'ar' ? 'ملخص الفحوصات' : 'Examination Summary'}
+                  </h3>
+                  <div className="space-y-2 text-left">
+                    <p className="text-gray-300">
+                      <span className="font-semibold">{language === 'ar' ? 'نوع الفحص:' : 'Exam Type:'}</span> {getExamName()}
+                    </p>
+                    <p className="text-gray-300">
+                      <span className="font-semibold">{language === 'ar' ? 'عدد العيادات:' : 'Number of Clinics:'}</span> {stations.length}
+                    </p>
+                    <p className="text-gray-300">
+                      <span className="font-semibold">{language === 'ar' ? 'الحالة:' : 'Status:'}</span> 
+                      <span className="text-green-400 font-bold"> {language === 'ar' ? 'مكتمل ✓' : 'Completed ✓'}</span>
+                    </p>
+                  </div>
+                </div>
+
+                {/* Clinics List */}
+                <div className="bg-gray-800/50 border border-gray-600 rounded-lg p-6 mt-4">
+                  <h3 className="text-lg font-bold text-white mb-3">
+                    {language === 'ar' ? 'العيادات المكتملة:' : 'Completed Clinics:'}
+                  </h3>
+                  <div className="space-y-2">
+                    {stations.map((station, index) => (
+                      <div key={station.id} className="flex items-center justify-between text-sm">
+                        <span className="text-gray-300">
+                          {index + 1}. {language === 'ar' ? station.nameAr : station.name}
+                        </span>
+                        <span className="text-green-400">✓</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-4 justify-center mt-8">
+                <Button 
+                  variant="default" 
+                  size="lg"
+                  onClick={onLogout}
+                  className="bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 text-white font-bold px-8 py-3 text-lg"
+                >
+                  {language === 'ar' ? '🏠 العودة للصفحة الرئيسية' : '🏠 Return to Home'}
+                </Button>
+              </div>
+
+              {/* Footer Note */}
+              <p className="text-gray-400 text-sm mt-6">
+                {language === 'ar'
+                  ? 'شكراً لاستخدامكم نظام إدارة الطوابير الطبية'
+                  : 'Thank you for using the Medical Queue Management System'}
+              </p>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen p-4" data-test="patient-page">
       {/* Real-time notification banner */}

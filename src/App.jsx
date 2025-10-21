@@ -8,9 +8,7 @@ import { AdminPage } from './components/AdminPage'
 import { QrScanPage } from './components/QrScanPage'
 import EnhancedThemeSelector from './components/EnhancedThemeSelector'
 import api from './lib/api-unified'
-import enhancedApi from './lib/enhanced-api-service'
-import notificationSystem from './lib/enhanced-notification-system'
-import performanceMonitor from './lib/performance-monitor'
+import enhancedApi from './lib/enhanced-api'
 
 import { themes } from './lib/utils'
 import { enhancedMedicalThemes, generateThemeCSS } from './lib/enhanced-themes'
@@ -179,23 +177,23 @@ function App() {
 
   const handleLogin = async ({ patientId, gender }) => {
     try {
-      // First login the patient using enhanced API
-      const loginResponse = await enhancedApi.patientLogin(patientId, gender)
+      // First login the patient
+      const loginResponse = await api.patientLogin(patientId, gender)
       if (loginResponse.success) {
         setPatientData(loginResponse.data)
         setCurrentView("examSelection")
-        notificationSystem.success(
+        showNotification(
           language === 'ar' ? 'تم تسجيل الدخول بنجاح' : 'Login successful',
-          { showBrowser: false }
+          'success'
         )
       } else {
         throw new Error(loginResponse.error || 'Login failed')
       }
     } catch (error) {
       console.error("Login failed:", error)
-      notificationSystem.error(
+      showNotification(
         language === 'ar' ? 'فشل تسجيل الدخول' : 'Login failed',
-        { showBrowser: false }
+        'error'
       )
     }
   }

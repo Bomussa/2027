@@ -126,3 +126,47 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(251, 191, 36, 0.7);
 }
+
+/* Device Compatibility Fixes - Layout behavior without visual changes */
+html {
+  overflow-x: hidden;
+  overflow-y: auto;
+  width: 100%;
+  max-width: 100vw;
+}
+
+body {
+  overflow-x: hidden;
+  overflow-y: auto;
+  width: 100%;
+  max-width: 100vw;
+}
+
+/* Prevent horizontal overflow on container elements */
+div, section, article, main, header, footer, nav, aside {
+  max-width: 100%;
+}
+
+/* Mobile-specific fixes */
+.device-mobile {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* iOS-specific fixes */
+.device-ios body {
+  /* Prevent bounce scrolling horizontally */
+  overscroll-behavior-x: none;
+}
+
+/* Android-specific fixes */
+.device-android body {
+  /* Prevent overscroll effects horizontally */
+  overscroll-behavior-x: none;
+}
+
+/* Ensure containers don't cause horizontal scroll */
+#root {
+  overflow-x: hidden;
+  width: 100%;
+  max-width: 100vw;
+}

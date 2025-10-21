@@ -204,15 +204,10 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     try {
       setLoading(true)
       
-      // التحقق من رقم البن كود
-      const dailyPin = clinicPins[station.id]
-      if (!dailyPin) {
-        alert(language === 'ar' ? 'خطأ: رقم البن كود غير متوفر' : 'Error: PIN code not available')
-        return
-      }
-      
-      if (!pinInput || String(pinInput).trim() !== String(dailyPin)) {
-        alert(language === 'ar' ? 'رقم البن كود غير صحيح' : 'Incorrect PIN code')
+      // التحقق من إدخال PIN
+      if (!pinInput || !pinInput.trim()) {
+        alert(language === 'ar' ? 'الرجاء إدخال رقم PIN' : 'Please enter PIN')
+        setLoading(false)
         return
       }
 

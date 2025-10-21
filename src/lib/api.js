@@ -58,63 +58,13 @@ class ApiService {
   }
 
   offlineFallback(endpoint, options = {}) {
-    try {
-      const method = (options.method || 'GET').toUpperCase()
-      const body = options.body ? JSON.parse(options.body) : null
-
-      const lsKey = 'mms.patientData'
-      const readPatient = () => {
-        try { return JSON.parse(localStorage.getItem(lsKey) || 'null') } catch { return null }
-      }
-      const writePatient = (v) => {
-        try { localStorage.setItem(lsKey, JSON.stringify(v)) } catch (e) { void 0 }
-      }
-
-      // Offline fallbacks
-      if (endpoint === `${API_VERSION}/pin/status` && method === 'GET') {
-        // Return mock PINs when offline
-        return {
-          ok: true,
-          data: {
-            success: true,
-            pins: {
-              lab: { pin: '75', clinic: 'lab', active: true },
-              xray: { pin: '68', clinic: 'xray', active: true },
-              vitals: { pin: '41', clinic: 'vitals', active: true },
-              ecg: { pin: '98', clinic: 'ecg', active: true },
-              audio: { pin: '66', clinic: 'audio', active: true },
-              eyes: { pin: '37', clinic: 'eyes', active: true },
-              internal: { pin: '94', clinic: 'internal', active: true },
-              ent: { pin: '36', clinic: 'ent', active: true },
-              surgery: { pin: '81', clinic: 'surgery', active: true },
-              dental: { pin: '55', clinic: 'dental', active: true },
-              psychiatry: { pin: '38', clinic: 'psychiatry', active: true },
-              derma: { pin: '71', clinic: 'derma', active: true },
-              bones: { pin: '31', clinic: 'bones', active: true }
-            }
-          }
-        }
-      }
-      
-      if (endpoint === `${API_VERSION}/queue/enter` && method === 'POST' && body?.user) {
-        const id = Date.now().toString(36)
-        const data = {
-          success: true,
-          clinic: body.clinic,
-          user: body.user,
-          number: Date.now(),
-          display_number: 1,
-          status: 'WAITING',
-          ahead: 0
-        }
-        writePatient(data)
-        return { ok: true, data }
-      }
-
-      return { ok: false }
-    } catch (e) {
-      return { ok: false }
-    }
+    // NO OFFLINE FALLBACK - All features require backend
+    // This ensures:
+    // 1. Real-time data synchronization
+    // 2. PIN verification security
+    // 3. Queue management accuracy
+    // 4. Dynamic routing correctness
+    return { ok: false }
   }
 
   // ==========================================

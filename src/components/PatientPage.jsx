@@ -26,9 +26,8 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
   useEffect(() => {
     const fetchDailyPins = async () => {
       try {
-        const response = await fetch('/api/v1/pin/status')
-        const data = await response.json()
-        if (data.pins) {
+        const data = await api.getPinStatus()
+        if (data && data.pins) {
           // تحويل البيانات إلى صيغة { clinic_id: pin_number }
           const pinsMap = {}
           Object.keys(data.pins).forEach(key => {
@@ -43,7 +42,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     }
     
     fetchDailyPins()
-    // تحديث كل 5 دقائق
+  }, [])حديث كل 5 دقائق
     const interval = setInterval(fetchDailyPins, 5 * 60 * 1000)
     return () => clearInterval(interval)
   }, [])

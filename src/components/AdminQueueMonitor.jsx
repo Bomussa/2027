@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { GENERAL_REFRESH_INTERVAL } from '../core/config/refresh.constants'
 import { t } from '../lib/i18n'
 import enhancedApi from '../lib/enhanced-api'
 
@@ -7,7 +8,7 @@ import enhancedApi from '../lib/enhanced-api'
  * Displays real-time queue status for a clinic
  * NO VISUAL CHANGES - Uses existing admin panel styles
  */
-export function AdminQueueMonitor({ clinicId, autoRefresh = true, refreshInterval = 20000 }) {
+export function AdminQueueMonitor({ clinicId, autoRefresh = true }) {
     const [queueData, setQueueData] = useState(null)
     const [loading, setLoading] = useState(true)
     const [error, setError] = useState(null)
@@ -33,10 +34,10 @@ export function AdminQueueMonitor({ clinicId, autoRefresh = true, refreshInterva
         fetchQueueStatus()
 
         if (autoRefresh) {
-            const interval = setInterval(fetchQueueStatus, refreshInterval)
+            const interval = setInterval(fetchQueueStatus, GENERAL_REFRESH_INTERVAL)
             return () => clearInterval(interval)
         }
-    }, [clinicId, autoRefresh, refreshInterval])
+    }, [clinicId, autoRefresh])
 
     if (loading && !queueData) {
         return (

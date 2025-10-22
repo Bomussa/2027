@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import { GENERAL_REFRESH_INTERVAL, NEAR_TURN_REFRESH_INTERVAL } from '../core/config/refresh.constants'
 import { Card, CardContent, CardHeader, CardTitle } from './Card'
 import { Button } from './Button'
 import { Input } from './Input'
@@ -26,6 +27,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
   // جلب أرقام البن كود اليومية من API
   useEffect(() => {
     const fetchDailyPins = async () => {
+      if (document.hidden) return;
       try {
         const data = await api.getPinStatus()
         if (data && data.pins) {
@@ -233,7 +235,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
                         }
                       }
                       
-                     setTimeout(() => setCurrentNotice(null), 7000);
+                     setTimeout(() => setCurrentNotice(null), NEAR_TURN_REFRESH_INTERVAL);
                     }
                   }
                   
@@ -262,7 +264,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     
     // Fallback polling كل 60 ثانية فقط (في حالة فشل SSE)
     // SSE هو المصدر الرئيسي للتحديثات اللحظية
-    const interval = setInterval(updateQueueStatus, 20000);
+    const interval = setInterval(updateQueueStatus, GENERAL_REFRESH_INTERVAL);
     
     return () => clearInterval(interval);
   }, [patientData?.id, stations, language]);
@@ -287,7 +289,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
         });
         
         enhancedApi.playNotificationSound();
-        setTimeout(() => setCurrentNotice(null), 7000);
+        setTimeout(() => setCurrentNotice(null), NEAR_TURN_REFRESH_INTERVAL);
       } catch (err) {
         console.error('SSE parse error:', err);
       }

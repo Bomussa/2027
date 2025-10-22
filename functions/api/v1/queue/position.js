@@ -38,12 +38,12 @@ export async function onRequestGet(context) {
       }, 404);
     }
     
-    // If already done, return completed status
+    // If already done, return completed status with -1
     if (userQueue.status === 'DONE') {
       return jsonResponse({
         success: true,
         status: 'DONE',
-        display_number: 0,
+        display_number: -1,
         ahead: 0,
         total_waiting: 0,
         message: 'Examination completed'
@@ -93,6 +93,19 @@ export async function onRequestGet(context) {
     // Calculate how many are ahead
     const ahead = myPosition - 1;
     
+    // Determine display number:
+    // -1 = Done (انتهى)
+    // 0 = Currently being served (داخل العيادة)
+    // 1+ = Waiting (في الانتظار)
+    let displayNumber;
+    if (ahead === 0) {
+      // First in queue = currently being served
+      displayNumber = 0;
+    } else {
+      // Waiting = position in queue (1, 2, 3, ...)
+      displayNumber = ahead;
+    }
+    
     // Estimate waiting time (average 5 minutes per patient)
     const estimatedMinutes = ahead * 5;
     
@@ -100,8 +113,8 @@ export async function onRequestGet(context) {
       success: true,
       clinic: clinic,
       user: user,
-      status: 'WAITING',
-      display_number: myPosition,
+      status: ahead === 0 ? 'IN_SERVICE' : 'WAITING',
+      display_number: displayNumber,
       ahead: ahead,
       total_waiting: activeQueue.length,
       estimated_wait_minutes: estimatedMinutes,

@@ -200,24 +200,25 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
               setStations(prev => prev.map(s => {
                 if (s.id === station.id) {
                   // إشعار فوري عند تغيير الموقع (لتجنب التكرار)
-                  const previousNumber = s.lastNotifiedPosition || 0;
-                  if (positionData.display_number !== previousNumber && positionData.display_number <= 3 && positionData.display_number > 0) {
+                  const previousNumber = s.lastNotifiedPosition || 999;
+                  if (positionData.display_number !== previousNumber) {
                     const messages = {
-                      1: language === 'ar' ? '🔔 دورك الآن!' : '🔔 Your turn now!',
-                      2: language === 'ar' ? '⚠️ أنت الثاني - كن جاهزاً' : '⚠️ You are second - be ready',
-                      3: language === 'ar' ? 'ℹ️ أنت الثالث - استعد' : 'ℹ️ You are third - get ready'
+                      0: language === 'ar' ? '🔔 دورك الآن!' : '🔔 Your turn now!',
+                      1: language === 'ar' ? '⚠️ أنت التالي - كن جاهزاً' : '⚠️ You are next - be ready',
+                      2: language === 'ar' ? 'ℹ️ أنت الثاني - استعد' : 'ℹ️ You are second - get ready'
                     };
                     
                     const message = messages[positionData.display_number];
-                    if (message) {
+                    // إظهار إشعار للمراكز 0, 1, 2 فقط
+                    if (message && positionData.display_number >= 0 && positionData.display_number <= 2) {
                       setCurrentNotice({
                         type: 'queue_update',
                         message: message,
                         clinic: station.nameAr
                       });
                       
-                      // تشغيل صوت عند دورك الآن
-                      if (positionData.display_number === 1) {
+                      // تشغيل صوت عند دورك الآن (0)
+                      if (positionData.display_number === 0) {
                         try {
                           const audio = new Audio('/notification.mp3');
                           audio.play().catch(e => console.log('Audio play failed:', e));

@@ -168,25 +168,93 @@ class ApiService {
   /**
    * دخول الدور في عيادة
    * Backend: POST /api/v1/queue/enter
-   * Body: { clinic, user }
-   * Response: { success, clinic, user, number, status, ahead, display_number }
+   * Body: { clinic, user, isAutoEntry }
+   * Response: { success, number, display_number, ahead, total_waiting }
+   * مع طبقة تحقق وإعادة محاولة
    */
-  async enterQueue(clinic, user, isAutoEntry = false) {
-    return this.request(`${API_VERSION}/queue/enter`, {
-      method: 'POST',
-      body: JSON.stringify({ clinic, user, isAutoEntry })
-    })
+  async enterQueue(clinic, user, isAutoEntry = false, retryCount = 0) {
+    const maxRetries = 3
+    
+    try {
+      const data = await this.request(`${API_VERSION}/queue/enter`, {
+        method: 'POST',
+        body: JSON.stringify({ clinic, user, isAutoEntry })
+      })
+      
+      // طبقة التحقق
+      if (!data || !data.success) {
+        throw new Error('Failed to enter queue')
+      }
+      
+      // التحقق من وجود رقم الدور
+      if (!data.number && !data.display_number) {
+        throw new Error('Missing queue number in response')
+      }
+      
+      return data
+      
+    } catch (error) {
+      console.error(`Enter queue failed (attempt ${retryCount + 1}/${maxRetries}):`, error)
+      
+      if (retryCount < maxRetries) {
+        await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 100))
+        return this.enterQueue(clinic, user, isAutoEntry, retryCount + 1)
+      }
+      
+      throw error
+    }
   }
 
   /**
    * الحصول على موقع الدور الحالي (للتحديث الدوري)
    * Backend: GET /api/v1/queue/position?clinic=xxx&user=yyy
    * Response: { success, display_number, ahead, total_waiting, estimated_wait_minutes }
+   * مع طبقة تحقق وإعادة محاولة تلقائية
    */
-  async getQueuePosition(clinic, user) {
-    return this.request(`${API_VERSION}/queue/position?clinic=${clinic}&user=${user}`, {
-      method: 'GET'
-    })
+  async getQueuePosition(clinic, user, retryCount = 0) {
+    const maxRetries = 3
+    
+    try {
+      const data = await this.request(`${API_VERSION}/queue/position?clinic=${clinic}&user=${user}`, {
+        method: 'GET'
+      })
+      
+      // طبقة التحقق: التأكد من صحة البيانات
+      if (!data || !data.success) {
+        throw new Error('Invalid response from backend')
+      }
+      
+      // التحقق من وجود display_number
+      if (data.display_number === undefined || data.display_number === null) {
+        throw new Error('Missing display_number in response')
+      }
+      
+      // التحقق من صحة الرقم (-1 للمنتهي, 0 للداخل, 1+ للمنتظر)
+      if (data.display_number < -1) {
+        throw new Error('Invalid display_number value')
+      }
+      
+      // التحقق من ahead
+      if (data.ahead === undefined || data.ahead < 0) {
+        throw new Error('Invalid ahead value')
+      }
+      
+      // البيانات صحيحة ✅
+      return data
+      
+    } catch (error) {
+      console.error(`Queue position fetch failed (attempt ${retryCount + 1}/${maxRetries}):`, error)
+      
+      // إعادة المحاولة إذا لم نصل للحد الأقصى
+      if (retryCount < maxRetries) {
+        // انتظار قصير قبل إعادة المحاولة (100ms, 200ms, 300ms)
+        await new Promise(resolve => setTimeout(resolve, (retryCount + 1) * 100))
+        return this.getQueuePosition(clinic, user, retryCount + 1)
+      }
+      
+      // فشلت جميع المحاولات
+      throw error
+    }
   }
 
   /**

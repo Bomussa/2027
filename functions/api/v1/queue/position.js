@@ -85,13 +85,25 @@ export async function onRequestGet(context) {
     
     // Calculate position based on entry time
     const myEntryTime = new Date(userQueue.entered_at).getTime();
-    const myPosition = activeQueue.filter(item => {
-      const itemTime = new Date(item.entered_at).getTime();
-      return itemTime <= myEntryTime;
-    }).length;
+    const myIndex = activeQueue.findIndex(item => item.user === user);
     
-    // Calculate how many are ahead
-    const ahead = myPosition - 1;
+    // If not found in active queue, user might be done
+    if (myIndex === -1) {
+      return jsonResponse({
+        success: true,
+        status: 'DONE',
+        display_number: -1,
+        ahead: 0,
+        total_waiting: 0,
+        message: 'Not found in active queue'
+      });
+    }
+    
+    // Position is index + 1 (1-based)
+    const myPosition = myIndex + 1;
+    
+    // Calculate how many are ahead (0-based)
+    const ahead = myIndex;
     
     // Determine display number:
     // -1 = Done (انتهى)
@@ -102,7 +114,7 @@ export async function onRequestGet(context) {
       // First in queue = currently being served
       displayNumber = 0;
     } else {
-      // Waiting = position in queue (1, 2, 3, ...)
+      // Waiting = show position (1, 2, 3, ...)
       displayNumber = ahead;
     }
     

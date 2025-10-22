@@ -42,21 +42,58 @@ export async function onRequest(context) {
       return jsonResponse({ success: false, error: 'Daily PINs not found' }, 404);
     }
     
-    // Verify PIN
+    // Verify PIN - MUST match the specific clinic's PIN only
     const clinicPinData = dailyPins[clinic];
+    
+    // Check if clinic exists in daily PINs
     if (!clinicPinData) {
-      return jsonResponse({ success: false, error: 'PIN not found for this clinic' }, 404);
+      return jsonResponse({ 
+        success: false, 
+        error: 'لم يتم العثور على PIN لهذه العيادة',
+        message: 'PIN not found for this clinic' 
+      }, 404);
     }
     
     // Extract PIN from object or use directly if string
     const correctPin = typeof clinicPinData === 'object' ? clinicPinData.pin : clinicPinData;
     
-    if (String(pin) !== String(correctPin)) {
+    // Strict PIN validation - must match exactly
+    if (!pin || String(pin).trim() === '') {
       return jsonResponse({ 
         success: false, 
-        error: 'رقم PIN غير صحيح',
-        message: 'Incorrect PIN'
+        error: 'يجب إدخال رقم PIN',
+        message: 'PIN is required'
       }, 400);
+    }
+    
+    // Normalize both PINs for comparison (remove spaces, ensure string)
+    const normalizedInputPin = String(pin).trim();
+    const normalizedCorrectPin = String(correctPin).trim();
+    
+    if (normalizedInputPin !== normalizedCorrectPin) {
+      return jsonResponse({ 
+        success: false, 
+        error: 'رقم PIN غير صحيح. يجب إدخال رقم PIN الخاص بهذه العيادة فقط',
+        message: 'Incorrect PIN. You must enter the PIN assigned to this specific clinic only',
+        clinic: clinic
+      }, 403);
+    }
+    
+    // Additional security check: verify PIN belongs to this clinic only
+    // Check if the entered PIN belongs to any other clinic
+    for (const [otherClinic, otherPinData] of Object.entries(dailyPins)) {
+      if (otherClinic !== clinic) {
+        const otherPin = typeof otherPinData === 'object' ? otherPinData.pin : otherPinData;
+        if (String(otherPin).trim() === normalizedInputPin) {
+          return jsonResponse({ 
+            success: false, 
+            error: `رقم PIN هذا يخص عيادة ${otherClinic} وليس ${clinic}`,
+            message: `This PIN belongs to ${otherClinic} clinic, not ${clinic}`,
+            correctClinic: otherClinic,
+            requestedClinic: clinic
+          }, 403);
+        }
+      }
     }
     
     // Get user entry

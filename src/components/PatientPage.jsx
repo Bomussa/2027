@@ -109,7 +109,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
               message: `📍 يرجى التوجه إلى ${firstClinic.floor}`,
               clinic: firstClinic.nameAr
             })
-            setTimeout(() => setCurrentNotice(null), 8000)
+            setTimeout(() => setCurrentNotice(null), 5000)
           }
         }
       } catch (err) {
@@ -226,7 +226,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
                         }
                       }
                       
-                      setTimeout(() => setCurrentNotice(null), 5000);
+                     setTimeout(() => setCurrentNotice(null), 5000);
                     }
                   }
                   
@@ -279,7 +279,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
         });
         
         enhancedApi.playNotificationSound();
-        setTimeout(() => setCurrentNotice(null), 10000);
+        setTimeout(() => setCurrentNotice(null), 5000);
       } catch (err) {
         console.error('SSE parse error:', err);
       }
@@ -354,7 +354,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
             : `✅ Examination completed. Please enter ${nextClinicName}`,
           clinic: nextClinicName
         })
-        setTimeout(() => setCurrentNotice(null), 8000)
+        setTimeout(() => setCurrentNotice(null), 5000)
       } else {
         // لا توجد عيادة تالية - فقط نكمل العيادة الحالية
         setStations(prev => prev.map((s, i) => 

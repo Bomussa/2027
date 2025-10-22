@@ -192,18 +192,29 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     }
   }, [patientData?.id])
 
-  // تحديث لحظي لحالة الطابور من الباك اند باستخدام position endpoint
+  // تحديث لحظي لحالة الطابور مع آلية الإصلاح التلقائي
   useEffect(() => {
     if (!patientData?.id || stations.length === 0) return;
     
+    let retryCount = 0;
+    const MAX_RETRY = 3;
+    const RECOVERY_DELAY = 5000; // 5 ثواني
+    const lastStateRef = { current: null };
+    
     const updateQueueStatus = async () => {
       if (document.hidden) return;
-      for (const station of stations) {
-        if (station.isEntered && station.status === 'ready') {
-          try {
+      
+      try {
+        for (const station of stations) {
+          if (station.isEntered && station.status === 'ready') {
             // استخدام endpoint position للحصول على موقع دقيق
             const positionData = await api.getQueuePosition(station.id, patientData.id);
             if (positionData && positionData.success) {
+              // تجنب التحديثات المكررة
+              const stateKey = `${station.id}-${positionData.display_number}`;
+              if (lastStateRef.current === stateKey) continue;
+              lastStateRef.current = stateKey;
+              
               // تحديث الأرقام من الباك اند
               setStations(prev => prev.map(s => {
                 if (s.id === station.id) {
@@ -235,7 +246,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
                         }
                       }
                       
-                     setTimeout(() => setCurrentNotice(null), NEAR_TURN_REFRESH_INTERVAL);
+                      setTimeout(() => setCurrentNotice(null), NEAR_TURN_REFRESH_INTERVAL);
                     }
                   }
                   
@@ -252,9 +263,38 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
                 return s;
               }));
             }
-          } catch (err) {
-            console.error(`Failed to update queue position for ${station.id}:`, err);
           }
+        }
+        
+        // نجاح – إعادة العداد
+        retryCount = 0;
+      } catch (err) {
+        console.warn('⚠️ فشل في تحديث الدور:', err.message);
+        retryCount++;
+        
+        if (retryCount <= MAX_RETRY) {
+          // إعادة المحاولة بعد تأخير
+          setTimeout(updateQueueStatus, RECOVERY_DELAY);
+        } else {
+          console.error('🔁 إعادة تهيئة النظام...');
+          
+          // تسجيل حالة الإصلاح الذاتي
+          try {
+            await fetch('/api/v1/events/recovery', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                source: 'queue-watcher',
+                retries: retryCount,
+                timestamp: new Date().toISOString()
+              })
+            });
+          } catch (logErr) {
+            console.warn('Failed to log recovery event:', logErr);
+          }
+          
+          // إصلاح ذاتي نهائي
+          window.location.reload();
         }
       }
     };
@@ -262,8 +302,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     // تحديث فوري
     updateQueueStatus();
     
-    // Fallback polling كل 60 ثانية فقط (في حالة فشل SSE)
-    // SSE هو المصدر الرئيسي للتحديثات اللحظية
+    // Fallback polling مع الفترة المحسّنة
     const interval = setInterval(updateQueueStatus, GENERAL_REFRESH_INTERVAL);
     
     return () => clearInterval(interval);

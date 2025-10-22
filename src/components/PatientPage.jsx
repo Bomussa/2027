@@ -199,35 +199,49 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
               // تحديث الأرقام من الباك اند
               setStations(prev => prev.map(s => {
                 if (s.id === station.id) {
+                  // إشعار فوري عند تغيير الموقع (لتجنب التكرار)
+                  const previousNumber = s.lastNotifiedPosition || 0;
+                  if (positionData.display_number !== previousNumber && positionData.display_number <= 3 && positionData.display_number > 0) {
+                    const messages = {
+                      1: language === 'ar' ? '🔔 دورك الآن!' : '🔔 Your turn now!',
+                      2: language === 'ar' ? '⚠️ أنت الثاني - كن جاهزاً' : '⚠️ You are second - be ready',
+                      3: language === 'ar' ? 'ℹ️ أنت الثالث - استعد' : 'ℹ️ You are third - get ready'
+                    };
+                    
+                    const message = messages[positionData.display_number];
+                    if (message) {
+                      setCurrentNotice({
+                        type: 'queue_update',
+                        message: message,
+                        clinic: station.nameAr
+                      });
+                      
+                      // تشغيل صوت عند دورك الآن
+                      if (positionData.display_number === 1) {
+                        try {
+                          const audio = new Audio('/notification.mp3');
+                          audio.play().catch(e => console.log('Audio play failed:', e));
+                        } catch (e) {
+                          console.log('Audio error:', e);
+                        }
+                      }
+                      
+                      setTimeout(() => setCurrentNotice(null), 5000);
+                    }
+                  }
+                  
+                  // حفظ الموقع لتجنب التكرار
                   return {
                     ...s,
                     yourNumber: positionData.display_number,
                     ahead: positionData.ahead,
                     totalWaiting: positionData.total_waiting,
-                    estimatedWait: positionData.estimated_wait_minutes
+                    estimatedWait: positionData.estimated_wait_minutes,
+                    lastNotifiedPosition: positionData.display_number
                   };
                 }
                 return s;
               }));
-              
-              // إشعار عند اقتراب الدور
-              if (positionData.display_number <= 3 && positionData.display_number > 0) {
-                const messages = {
-                  1: language === 'ar' ? '🔔 دورك الآن!' : '🔔 Your turn now!',
-                  2: language === 'ar' ? '⚠️ أنت الثاني - كن جاهزاً' : '⚠️ You are second - be ready',
-                  3: language === 'ar' ? 'ℹ️ أنت الثالث - استعد' : 'ℹ️ You are third - get ready'
-                };
-                
-                const message = messages[positionData.display_number];
-                if (message) {
-                  setCurrentNotice({
-                    type: 'queue_update',
-                    message: message,
-                    clinic: station.nameAr
-                  });
-                  setTimeout(() => setCurrentNotice(null), 5000);
-                }
-              }
             }
           } catch (err) {
             console.error(`Failed to update queue position for ${station.id}:`, err);
@@ -239,8 +253,8 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     // تحديث فوري
     updateQueueStatus();
     
-    // تحديث كل 3 ثواني للدقة اللحظية
-    const interval = setInterval(updateQueueStatus, 3000);
+    // تحديث كل ثانية واحدة للدقة اللحظية الفورية
+    const interval = setInterval(updateQueueStatus, 1000);
     
     return () => clearInterval(interval);
   }, [patientData?.id, stations, language]);

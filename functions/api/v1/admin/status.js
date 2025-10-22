@@ -14,7 +14,7 @@ export async function onRequestGet(context) {
       KV_ADMIN: !!env.KV_ADMIN,
       KV_EVENTS: !!env.KV_EVENTS,
       KV_LOCKS: !!env.KV_LOCKS,
-      MMS_CACHE: !!env.MMS_CACHE
+      KV_CACHE: !!env.KV_CACHE
     };
 
     const allBound = Object.values(kvBindings).every(v => v);

@@ -14,7 +14,7 @@ export async function onRequestGet(context) {
     if (env.KV_QUEUES) kvBound.push('KV_QUEUES');
     if (env.KV_EVENTS) kvBound.push('KV_EVENTS');
     if (env.KV_LOCKS) kvBound.push('KV_LOCKS');
-    if (env.MMS_CACHE) kvBound.push('MMS_CACHE');
+    if (env.KV_CACHE) kvBound.push('KV_CACHE');
 
     // Check R2 bindings
     const r2Bound = [];

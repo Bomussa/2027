@@ -1,5 +1,5 @@
 name = "2027"
-compatibility_date = "2025-10-18"
+compatibility_date = "2025-10-22"
 pages_build_output_dir = "dist"
 
 [[kv_namespaces]]
@@ -23,7 +23,7 @@ binding = "KV_LOCKS"
 id = "99b12b0fa33e4d57a8bd1447ab80236f"
 
 [[kv_namespaces]]
-binding = "MMS_CACHE"
+binding = "KV_CACHE"
 id = "1d3d4e6c12174b7797b356234794e7e5"
 
 [vars]

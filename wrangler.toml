@@ -1,9 +1,10 @@
-name = "mmc-mms"
+name = "mmc-mms-2027"
 compatibility_date = "2025-10-18"
 pages_build_output_dir = "dist"
 
+# KV Namespaces - Unified bindings
 [[kv_namespaces]]
-binding = "KV_ADMIN"
+binding = "MMS_KV"
 id = "fd4470d6a7f34709b3486b1ab0ade4e7"
 
 [[kv_namespaces]]
@@ -26,16 +27,28 @@ id = "99b12b0fa33e4d57a8bd1447ab80236f"
 binding = "KV_CACHE"
 id = "1d3d4e6c12174b7797b356234794e7e5"
 
+# D1 Database - Unified binding
+# Note: D1 database must be created via Cloudflare Dashboard or wrangler CLI
+# Command: wrangler d1 create mms_d1
+# Then update the database_id below
+# [[d1_databases]]
+# binding = "MMS_DB"
+# database_name = "mms_d1"
+# database_id = "YOUR_D1_DATABASE_ID"
+
 [vars]
 TIMEZONE = "Asia/Qatar"
 PIN_SECRET = "6a1f1a07787035f332b188d623a6395dc50de51bf90a62238ed25b5519ca3194"
 JWT_SECRET = "ff8d89d5d43df95e470553e76f3c4ca18f651ad4fdc6ab86b256f4883e6aa220"
 NOTIFY_KEY = "https://notify.mmc-mms.com/webhook"
+SITE_ORIGIN = "https://mmc-mms.com"
+API_BASE_URL = "https://mmc-mms.com/api/v1"
 
 # CRON Triggers (Scheduled Events)
 # Note: CRON triggers are configured in Cloudflare Dashboard for Pages Projects
 # These are documented here for reference:
 # - "0 0 * * *" (00:00 Qatar time) - Reset daily PINs
-# - "*/1 * * * *" (Every minute) - Notify poller
-# - "59 23 * * *" (23:59 Qatar time) - Daily backup and reports
+# - "0 2 * * *" (02:00 Qatar time) - Nightly backup
+# - "0 * * * *" (Every hour) - Hourly canary test
+# - "59 23 * * *" (23:59 Qatar time) - Daily reports
 

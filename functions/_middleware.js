@@ -84,20 +84,29 @@ export async function onRequest(context) {
   // Continue to the next handler
   const response = await next();
   
-  // Add CORS headers to response if API or admin route
+  const newHeaders = new Headers(response.headers);
+  
+  // 4. Cache-Control headers
+  // Static files (JS, CSS, images, fonts)
+  if (url.pathname.match(/\.(js|css|png|jpg|jpeg|svg|woff|woff2|ttf|ico)$/)) {
+    newHeaders.set('Cache-Control', 'public, max-age=600, s-maxage=1800');
+  }
+  // API responses - no cache
+  else if (url.pathname.startsWith('/api/v1/')) {
+    newHeaders.set('Cache-Control', 'no-store');
+  }
+  
+  // 5. Add CORS headers to response if API or admin route
   if (url.pathname.startsWith('/api/') || url.pathname.startsWith('/admin/')) {
-    const newHeaders = new Headers(response.headers);
     newHeaders.set('Access-Control-Allow-Origin', '*');
     newHeaders.set('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
     newHeaders.set('Access-Control-Allow-Headers', 'Content-Type, Authorization, Idempotency-Key');
-    
-    return new Response(response.body, {
-      status: response.status,
-      statusText: response.statusText,
-      headers: newHeaders
-    });
   }
   
-  return response;
+  return new Response(response.body, {
+    status: response.status,
+    statusText: response.statusText,
+    headers: newHeaders
+  });
 }
 

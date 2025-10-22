@@ -53,13 +53,14 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
         setStats(event.data)
       }
     })
-    // Polling احتياطي كل 10 ثوانٍ (الإدارة لا تحتاج تحديث سريع)
+    // Fallback polling كل 60 ثانية فقط (في حالة فشل SSE)
+    // SSE هو المصدر الرئيسي للتحديثات
     const interval = setInterval(() => {
       loadStats()
       loadActivePins()
       loadQueues()
       loadRecentReports()
-    }, 10000)
+    }, 60000)
     return () => {
       clearInterval(interval)
       if (sseRef.current) sseRef.current.close()

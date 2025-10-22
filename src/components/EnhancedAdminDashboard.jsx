@@ -104,8 +104,8 @@ export function EnhancedAdminDashboard({ language, onLogout }) {
   useEffect(() => {
     fetchData()
 
-    // تحديث البيانات كل 15 ثانية (لوحة الإحصائيات)
-    const interval = setInterval(fetchData, 15000)
+    // Fallback polling كل 60 ثانية (لوحة الإحصائيات غير حرجة)
+    const interval = setInterval(fetchData, 60000)
 
     return () => clearInterval(interval)
   }, [])

@@ -30,8 +30,8 @@ export function NotificationsPage({ language }) {
   useEffect(() => {
     loadNotifications()
 
-    // تحديث الإشعارات كل 10 ثواني
-    const interval = setInterval(loadNotifications, 10000)
+    // Fallback polling كل 60 ثانية (الإشعارات غير حرجة)
+    const interval = setInterval(loadNotifications, 60000)
 
     return () => clearInterval(interval)
   }, [])

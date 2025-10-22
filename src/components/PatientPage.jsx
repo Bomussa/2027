@@ -259,8 +259,9 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     // تحديث فوري
     updateQueueStatus();
     
-    // تحديث كل 5 ثوانٍ لتوازن الأداء والسرعة
-    const interval = setInterval(updateQueueStatus, 5000);
+    // Fallback polling كل 60 ثانية فقط (في حالة فشل SSE)
+    // SSE هو المصدر الرئيسي للتحديثات اللحظية
+    const interval = setInterval(updateQueueStatus, 60000);
     
     return () => clearInterval(interval);
   }, [patientData?.id, stations, language]);

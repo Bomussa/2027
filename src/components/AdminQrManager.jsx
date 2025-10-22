@@ -22,7 +22,7 @@ export function AdminQrManager({ language = 'ar' }) {
   // جلب إحصائيات الجلسات
   useEffect(() => {
     fetchStats()
-    const interval = setInterval(fetchStats, 20000) // تحديث كل 20 ثانية (QR إحصائيات)
+    const interval = setInterval(fetchStats, 60000) // Fallback polling كل 60 ثانية (QR غير حرج)
     return () => clearInterval(interval)
   }, [])
 

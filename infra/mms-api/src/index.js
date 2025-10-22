@@ -62,7 +62,7 @@ async function acquireLock(env, resource, timeout = 5000) {
     id: lockId,
     expiresAt
   }), {
-    expirationTtl: Math.ceil(timeout / 1000)
+    expirationTtl: Math.max(60, Math.ceil(timeout / 1000))
   });
   
   return lockId;

@@ -4,14 +4,15 @@
 import { jsonResponse } from '../../../_shared/utils.js';
 
 const CLINICS = [
-  'lab', 'xray', 'eyes', 'internal', 'ent', 'surgery', 
-  'dental', 'psychiatry', 'derma', 'bones', 'vitals', 'ecg', 'audio',
-  'women_internal', 'women_derma', 'women_eyes'
+  'lab', 'xray', 'vitals', 'ecg', 'audio', 'eyes', 
+  'internal', 'ent', 'surgery', 'dental', 'psychiatry', 
+  'derma', 'bones'
 ];
 
-// Generate random 2-digit PIN
+// Generate random 2-digit PIN (01-20 range)
 function generatePin() {
-  return String(Math.floor(Math.random() * 90) + 10);
+  const pin = Math.floor(Math.random() * 20) + 1;
+  return String(pin).padStart(2, '0');
 }
 
 // Generate unique PINs for all clinics with guaranteed uniqueness

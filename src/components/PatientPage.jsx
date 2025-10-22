@@ -197,6 +197,8 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     if (!patientData?.id || stations.length === 0) return;
     
     let retryCount = 0;
+    let lastResponseTime = Date.now();
+    let dynamicInterval = GENERAL_REFRESH_INTERVAL;
     const MAX_RETRY = 3;
     const RECOVERY_DELAY = 5000; // 5 ثواني
     const lastStateRef = { current: null };
@@ -204,6 +206,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     const updateQueueStatus = async () => {
       if (document.hidden) return;
       
+      const start = Date.now();
       try {
         for (const station of stations) {
           if (station.isEntered && station.status === 'ready') {
@@ -268,9 +271,14 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
         
         // نجاح – إعادة العداد
         retryCount = 0;
+        const duration = Date.now() - start;
+        lastResponseTime = Date.now();
+        // تعديل فترات التحديث ديناميكيًا حسب وقت الاستجابة
+        dynamicInterval = Math.max(5000, GENERAL_REFRESH_INTERVAL + duration);
       } catch (err) {
         console.warn('⚠️ فشل في تحديث الدور:', err.message);
         retryCount++;
+        dynamicInterval = Math.min(60000, dynamicInterval * 1.5);
         
         if (retryCount <= MAX_RETRY) {
           // إعادة المحاولة بعد تأخير
@@ -293,8 +301,13 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
             console.warn('Failed to log recovery event:', logErr);
           }
           
-          // إصلاح ذاتي نهائي
-          window.location.reload();
+          // إصلاح ذاتي نهائي مع تفريغ الكاش
+          if ('caches' in window) {
+            caches.keys().then(names => {
+              names.forEach(name => caches.delete(name));
+            });
+          }
+          window.location.reload(true);
         }
       }
     };
@@ -302,10 +315,30 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     // تحديث فوري
     updateQueueStatus();
     
-    // Fallback polling مع الفترة المحسّنة
-    const interval = setInterval(updateQueueStatus, GENERAL_REFRESH_INTERVAL);
+    // Fallback polling مع الفترة الديناميكية
+    const interval = setInterval(() => {
+      updateQueueStatus();
+    }, dynamicInterval);
     
-    return () => clearInterval(interval);
+    // Heartbeat لمراقبة الصفحة
+    const heartbeatInterval = setInterval(() => {
+      const now = Date.now();
+      if (now - lastResponseTime > 60000) {
+        console.warn('🩺 الصفحة لم تستجب منذ دقيقة — إعادة تهيئة...');
+        // تفريغ الكاش قبل إعادة التحميل
+        if ('caches' in window) {
+          caches.keys().then(names => {
+            names.forEach(name => caches.delete(name));
+          });
+        }
+        window.location.reload(true);
+      }
+    }, 60000);
+    
+    return () => {
+      clearInterval(interval);
+      clearInterval(heartbeatInterval);
+    };
   }, [patientData?.id, stations, language]);
   
   // Connect to SSE for real-time notifications

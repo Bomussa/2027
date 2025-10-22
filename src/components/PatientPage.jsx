@@ -124,18 +124,23 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
   const handleEnterClinic = async (station) => {
     try {
       setLoading(true)
-      const res = await api.enterQueue(station.id, patientData.id, true)
-      const ticket = res?.display_number || res?.number || 1
+      // دخول الدور
+      await api.enterQueue(station.id, patientData.id, true)
       
-      setActiveTicket({ clinicId: station.id, ticket })
-      setStations(prev => prev.map(s => s.id === station.id ? {
-        ...s,
-        current: res?.current || 0,
-        yourNumber: ticket,
-        ahead: res?.ahead || 0,
-        status: 'ready',
-        isEntered: true
-      } : s))
+      // جلب الموقع الفعلي من Backend
+      const positionData = await api.getQueuePosition(station.id, patientData.id)
+      
+      if (positionData && positionData.success) {
+        setActiveTicket({ clinicId: station.id, ticket: positionData.display_number })
+        setStations(prev => prev.map(s => s.id === station.id ? {
+          ...s,
+          yourNumber: positionData.display_number,
+          ahead: positionData.ahead,
+          totalWaiting: positionData.total_waiting,
+          status: 'ready',
+          isEntered: true
+        } : s))
+      }
       
       setLoading(false)
     } catch (e) {
@@ -148,27 +153,27 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
   // دخول تلقائي للعيادة الأولى
   const handleAutoEnterFirstClinic = async (station) => {
     try {
-      const res = await api.enterQueue(station.id, patientData.id, true)
-      const ticket = res?.display_number || res?.number || 1
+      // دخول الدور
+      await api.enterQueue(station.id, patientData.id, true)
       
-      setActiveTicket({ clinicId: station.id, ticket })
-      setStations(prev => prev.map((s, idx) => idx === 0 ? {
-        ...s,
-        current: res?.current || 0,
-        yourNumber: ticket,
-        ahead: res?.ahead || 0,
-        status: 'ready',
-        isEntered: true
-      } : s))
+      // جلب الموقع الفعلي من Backend
+      const positionData = await api.getQueuePosition(station.id, patientData.id)
+      
+      if (positionData && positionData.success) {
+        setActiveTicket({ clinicId: station.id, ticket: positionData.display_number })
+        setStations(prev => prev.map((s, idx) => idx === 0 ? {
+          ...s,
+          yourNumber: positionData.display_number,
+          ahead: positionData.ahead,
+          totalWaiting: positionData.total_waiting,
+          status: 'ready',
+          isEntered: true
+        } : s))
+      }
     } catch (e) {
       console.error('Auto-enter first clinic failed:', e)
-      // في حالة الفشل، نعطي رقم دور افتراضي
-      setStations(prev => prev.map((s, idx) => idx === 0 ? {
-        ...s,
-        yourNumber: 1,
-        status: 'ready',
-        isEntered: true
-      } : s))
+      // في حالة الفشل، لا نعطي أي رقم افتراضي
+      console.error('Cannot enter clinic without backend connection')
     }
   }
 

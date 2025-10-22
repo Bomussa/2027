@@ -4,12 +4,18 @@
   "type": "module",
   "description": "Military Medical Committee System - Complete Application",
   "main": "server.js",
+  "engines": {
+    "node": ">=18.17 <21"
+  },
   "scripts": {
-    "dev": "vite",
+    "dev": "wrangler pages dev --compatibility-date=2025-10-22",
+    "dev:vite": "vite",
     "build": "vite build",
     "preview": "vite preview",
     "start": "node server.js",
-    "install-and-start": "npm install --legacy-peer-deps && npm run build && npm start"
+    "deploy": "npm run build && wrangler pages publish dist",
+    "test:api": "node test-api-integration.js",
+    "test:final": "node final-integration-test.js"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.0.5",

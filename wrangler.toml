@@ -31,9 +31,9 @@ id = "1d3d4e6c12174b7797b356234794e7e5"  # MMS_CACHE
 
 [vars]
 TIMEZONE = "Asia/Qatar"
-PIN_SECRET = "6a1f1a07787035f332b188d623a6395dc50de51bf90a62238ed25b5519ca3194"
-JWT_SECRET = "ff8d89d5d43df95e470553e76f3c4ca18f651ad4fdc6ab86b256f4883e6aa220"
-NOTIFY_KEY = "https://notify.mmc-mms.com/webhook"
+# Secrets (PIN_SECRET, JWT_SECRET, NOTIFY_KEY) are stored in:
+# - Local development: .dev.vars file (not committed to git)
+# - Production: Cloudflare Dashboard → Settings → Variables and Secrets
 
 # CRON Triggers (Scheduled Events)
 # Note: CRON triggers are configured in Cloudflare Dashboard for Pages Projects

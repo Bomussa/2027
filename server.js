@@ -4,7 +4,6 @@ import { fileURLToPath } from 'url';
 import dotenv from 'dotenv';
 import helmet from 'helmet';
 import cors from 'cors';
-import api from './dist_server/api/index.js';
 
 dotenv.config();
 
@@ -22,17 +21,13 @@ app.use(helmet({
   crossOriginEmbedderPolicy: false
 }));
 
-// Mount API routes
-app.use(api);
-
 // Serve static files from dist directory
 app.use(express.static(path.join(__dirname, 'dist')));
 
-// Serve index.html for all non-API routes (SPA support)
+// Serve index.html for all routes (SPA support)
+// Note: API routes are handled by Cloudflare Pages Functions in production
 app.get('*', (req, res) => {
-  if (!req.path.startsWith('/api')) {
-    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
-  }
+  res.sendFile(path.join(__dirname, 'dist', 'index.html'));
 });
 
 // Start server
@@ -44,6 +39,9 @@ app.listen(PORT, HOST, () => {
 ║  Server: http://${HOST}:${PORT}              ║
 ║  Status: Running                              ║
 ║  Environment: ${process.env.NODE_ENV || 'development'}                    ║
+║                                               ║
+║  Note: This server only serves the frontend.  ║
+║  API is handled by Cloudflare Pages Functions ║
 ╚═══════════════════════════════════════════════╝
   `);
 });
@@ -58,3 +56,4 @@ process.on('SIGINT', () => {
   console.log('SIGINT received, shutting down gracefully...');
   process.exit(0);
 });
+

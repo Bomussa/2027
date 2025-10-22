@@ -45,6 +45,10 @@ pids
 .env.test.local
 .env.production.local
 
+# Cloudflare secrets (local development)
+.dev.vars
+.dev.vars.*
+
 # parcel-bundler cache
 .cache
 .parcel-cache

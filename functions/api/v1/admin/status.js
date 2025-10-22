@@ -1,15 +1,7 @@
 // Admin Status - Get system status
 // GET /api/v1/admin/status
 
-function jsonResponse(data, status = 200) {
-  return new Response(JSON.stringify(data, null, 2), {
-    status,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Access-Control-Allow-Origin': '*'
-    }
-  });
-}
+import { jsonResponse } from '../../../_shared/utils.js';
 
 export async function onRequestGet(context) {
   const { env } = context;
@@ -32,13 +24,15 @@ export async function onRequestGet(context) {
     let totalWaiting = 0;
     let totalDone = 0;
 
-    for (const clinic of clinics) {
-      const queueKey = `queue:${clinic}`;
-      const queueData = await env.KV_QUEUES.get(queueKey, { type: 'json' });
+    if (env.KV_QUEUES) {
+      for (const clinic of clinics) {
+        const queueKey = `queue:${clinic}`;
+        const queueData = await env.KV_QUEUES.get(queueKey, { type: 'json' });
 
-      if (queueData) {
-        totalWaiting += queueData.patients.filter(p => p.status === 'WAITING').length;
-        totalDone += queueData.patients.filter(p => p.status === 'DONE').length;
+        if (queueData) {
+          totalWaiting += queueData.patients.filter(p => p.status === 'WAITING').length;
+          totalDone += queueData.patients.filter(p => p.status === 'DONE').length;
+        }
       }
     }
 
@@ -60,7 +54,8 @@ export async function onRequestGet(context) {
     return jsonResponse({
       success: false,
       online: false,
-      error: error.message
+      error: error.message,
+      timestamp: new Date().toISOString()
     }, 500);
   }
 }

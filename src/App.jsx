@@ -76,7 +76,7 @@ function App() {
         oscillator.start(audioContext.currentTime)
         oscillator.stop(audioContext.currentTime + 0.2)
       } catch (e) {
-        console.log('Audio generation failed:', e)
+        // Audio generation failed silently
       }
     }
 
@@ -127,7 +127,7 @@ function App() {
 
     const themeCSS = generateThemeCSS(themeId)
 
-    console.log('🎨 تطبيق الثيم:', themeId)
+    // Applying theme
 
     // إزالة الثيم السابق
     const existingStyle = document.getElementById('enhanced-theme-style')
@@ -145,7 +145,7 @@ function App() {
     document.body.style.background = theme.gradients.background
     document.body.className = `theme-${themeId}`
 
-    console.log('✅ تم تطبيق الثيم بنجاح')
+    // Theme applied successfully
   }
 
   const handleThemeChange = (themeId) => {
@@ -190,7 +190,7 @@ function App() {
         throw new Error(loginResponse.error || 'Login failed')
       }
     } catch (error) {
-      console.error("Login failed:", error)
+      // Login failed - show notification
       showNotification(
         language === 'ar' ? 'فشل تسجيل الدخول' : 'Login failed',
         'error'
@@ -204,7 +204,7 @@ function App() {
       setPatientData({ ...patientData, queueType: examType, ...updatedData })
       setCurrentView('patient')
     } catch (error) {
-      console.error('Exam selection failed:', error)
+      // Exam selection failed
       alert(t('examSelected', language))
     }
   }
@@ -239,7 +239,7 @@ function App() {
       // إذا فشل
       alert(language === 'ar' ? 'بيانات الدخول غير صحيحة' : 'Invalid credentials')
     } catch (error) {
-      console.error('Admin login error:', error)
+      // Admin login error
       alert(language === 'ar' ? 'حدث خطأ في تسجيل الدخول' : 'Login error')
     }
   }

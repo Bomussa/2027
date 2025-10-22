@@ -1,15 +1,6 @@
 // Call Next Patient - Admin calls next number every 2 minutes
 
-function jsonResponse(data, status = 200) {
-  return new Response(JSON.stringify(data, null, 2), {
-    status,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Access-Control-Allow-Origin': '*',
-      'Cache-Control': 'no-cache, no-store, must-revalidate'
-    }
-  });
-}
+import { jsonResponse, corsResponse, validateRequiredFields, checkKVAvailability } from '../../../_shared/utils.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -22,14 +13,19 @@ export async function onRequest(context) {
     const body = await request.json();
     const { clinic } = body;
     
-    if (!clinic) {
-      return jsonResponse({ success: false, error: 'Missing clinic' }, 400);
+    // Validate required fields
+    const validationError = validateRequiredFields(body, ['clinic']);
+    if (validationError) {
+      return jsonResponse(validationError, 400);
+    }
+    
+    // Check KV availability
+    const kvError = checkKVAvailability(env.KV_QUEUES, 'KV_QUEUES');
+    if (kvError) {
+      return jsonResponse(kvError, 500);
     }
     
     const kv = env.KV_QUEUES;
-    if (!kv) {
-      return jsonResponse({ success: false, error: 'KV not available' }, 500);
-    }
     
     // Get queue list
     const listKey = `queue:list:${clinic}`;
@@ -65,20 +61,15 @@ export async function onRequest(context) {
     });
     
   } catch (error) {
-    console.error('Call next error:', error);
-    return jsonResponse({ success: false, error: error.message }, 500);
+    return jsonResponse({ 
+      success: false, 
+      error: error.message,
+      timestamp: new Date().toISOString()
+    }, 500);
   }
 }
 
 export async function onRequestOptions() {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-      'Access-Control-Max-Age': '86400'
-    }
-  });
+  return corsResponse(['POST', 'OPTIONS']);
 }
 

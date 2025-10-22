@@ -2,16 +2,7 @@
 // GET /api/v1/queue/position?clinic=xxx&user=yyy
 // Returns accurate, real-time position in queue
 
-function jsonResponse(data, status = 200) {
-  return new Response(JSON.stringify(data, null, 2), {
-    status,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Access-Control-Allow-Origin': '*',
-      'Cache-Control': 'no-cache, no-store, must-revalidate'
-    }
-  });
-}
+import { jsonResponse, corsResponse, checkKVAvailability } from '../../../_shared/utils.js';
 
 export async function onRequestGet(context) {
   const { request, env } = context;
@@ -26,6 +17,12 @@ export async function onRequestGet(context) {
         success: false,
         error: 'clinic and user required'
       }, 400);
+    }
+    
+    // Check KV availability
+    const kvError = checkKVAvailability(env.KV_QUEUES, 'KV_QUEUES');
+    if (kvError) {
+      return jsonResponse(kvError, 500);
     }
     
     const kv = env.KV_QUEUES;
@@ -113,24 +110,16 @@ export async function onRequestGet(context) {
     });
     
   } catch (error) {
-    console.error('Queue position error:', error);
     return jsonResponse({
       success: false,
-      error: error.message || 'Internal server error'
+      error: error.message || 'Internal server error',
+      timestamp: new Date().toISOString()
     }, 500);
   }
 }
 
 // Handle OPTIONS for CORS
 export async function onRequestOptions() {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'GET, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-      'Access-Control-Max-Age': '86400'
-    }
-  });
+  return corsResponse(['GET', 'OPTIONS']);
 }
 

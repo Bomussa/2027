@@ -2,15 +2,7 @@
 // POST /api/v1/queue/call
 // Body: { clinic }
 
-function jsonResponse(data, status = 200) {
-  return new Response(JSON.stringify(data, null, 2), {
-    status,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Access-Control-Allow-Origin': '*'
-    }
-  });
-}
+import { jsonResponse, validateRequiredFields, checkKVAvailability } from '../../../_shared/utils.js';
 
 export async function onRequestPost(context) {
   const { request, env } = context;
@@ -19,11 +11,16 @@ export async function onRequestPost(context) {
     const body = await request.json().catch(() => ({}));
     const { clinic } = body;
 
-    if (!clinic) {
-      return jsonResponse({
-        success: false,
-        error: 'clinic required'
-      }, 400);
+    // Validate required fields
+    const validationError = validateRequiredFields(body, ['clinic']);
+    if (validationError) {
+      return jsonResponse(validationError, 400);
+    }
+
+    // Check KV availability
+    const kvError = checkKVAvailability(env.KV_QUEUES, 'KV_QUEUES');
+    if (kvError) {
+      return jsonResponse(kvError, 500);
     }
 
     const kv = env.KV_QUEUES;
@@ -61,15 +58,17 @@ export async function onRequestPost(context) {
     });
     
     // Log event
-    const eventKey = `event:${clinic}:${Date.now()}`;
-    await env.KV_EVENTS.put(eventKey, JSON.stringify({
-      type: 'CALL_NEXT',
-      clinic: clinic,
-      number: nextNumber,
-      timestamp: new Date().toISOString()
-    }), {
-      expirationTtl: 3600 // 1 hour
-    });
+    if (env.KV_EVENTS) {
+      const eventKey = `event:${clinic}:${Date.now()}`;
+      await env.KV_EVENTS.put(eventKey, JSON.stringify({
+        type: 'CALL_NEXT',
+        clinic: clinic,
+        number: nextNumber,
+        timestamp: new Date().toISOString()
+      }), {
+        expirationTtl: 3600 // 1 hour
+      });
+    }
 
     return jsonResponse({
       success: true,
@@ -81,7 +80,8 @@ export async function onRequestPost(context) {
   } catch (error) {
     return jsonResponse({
       success: false,
-      error: error.message
+      error: error.message,
+      timestamp: new Date().toISOString()
     }, 500);
   }
 }

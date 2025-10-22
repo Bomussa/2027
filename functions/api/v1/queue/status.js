@@ -1,17 +1,13 @@
 // Queue Status - Get current queue status for a clinic
 // Returns current serving number, total length, and waiting count
 
+import { jsonResponse, checkKVAvailability } from '../../../_shared/utils.js';
+
 export async function onRequest(context) {
   const { request, env } = context;
   
   if (request.method !== 'GET') {
-    return new Response(JSON.stringify({
-      success: false,
-      error: 'Method not allowed'
-    }), {
-      status: 405,
-      headers: { 'Content-Type': 'application/json; charset=utf-8' }
-    });
+    return jsonResponse({ success: false, error: 'Method not allowed' }, 405);
   }
   
   try {
@@ -19,13 +15,16 @@ export async function onRequest(context) {
     const clinic = url.searchParams.get('clinic');
     
     if (!clinic) {
-      return new Response(JSON.stringify({
+      return jsonResponse({
         success: false,
         error: 'Missing clinic parameter'
-      }), {
-        status: 400,
-        headers: { 'Content-Type': 'application/json; charset=utf-8' }
-      });
+      }, 400);
+    }
+    
+    // Check KV availability
+    const kvError = checkKVAvailability(env.KV_QUEUES, 'KV_QUEUES');
+    if (kvError) {
+      return jsonResponse(kvError, 500);
     }
     
     const kv = env.KV_QUEUES;
@@ -52,29 +51,21 @@ export async function onRequest(context) {
       waiting = queueList.length;
     }
     
-    return new Response(JSON.stringify({
+    return jsonResponse({
       success: true,
       clinic: clinic,
       current: status.current,
       current_display: status.served.length + 1,
       length: queueList.length,
       waiting: waiting
-    }), {
-      status: 200,
-      headers: { 
-        'Content-Type': 'application/json; charset=utf-8',
-        'Cache-Control': 'no-cache, no-store, must-revalidate'
-      }
     });
     
   } catch (error) {
-    return new Response(JSON.stringify({
+    return jsonResponse({
       success: false,
-      error: error.message
-    }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json; charset=utf-8' }
-    });
+      error: error.message,
+      timestamp: new Date().toISOString()
+    }, 500);
   }
 }
 

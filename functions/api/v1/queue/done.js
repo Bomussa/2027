@@ -1,15 +1,6 @@
 // Queue Done - Exit from clinic with PIN verification
 
-function jsonResponse(data, status = 200) {
-  return new Response(JSON.stringify(data, null, 2), {
-    status,
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Access-Control-Allow-Origin': '*',
-      'Cache-Control': 'no-cache, no-store, must-revalidate'
-    }
-  });
-}
+import { jsonResponse, corsResponse, validateRequiredFields, checkKVAvailability } from '../../../_shared/utils.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -22,14 +13,19 @@ export async function onRequest(context) {
     const body = await request.json();
     const { clinic, user, pin } = body;
     
-    if (!clinic || !user || !pin) {
-      return jsonResponse({ success: false, error: 'Missing required fields' }, 400);
+    // Validate required fields
+    const validationError = validateRequiredFields(body, ['clinic', 'user', 'pin']);
+    if (validationError) {
+      return jsonResponse(validationError, 400);
+    }
+    
+    // Check KV availability
+    const kvError = checkKVAvailability(env.KV_QUEUES, 'KV_QUEUES');
+    if (kvError) {
+      return jsonResponse(kvError, 500);
     }
     
     const kv = env.KV_QUEUES;
-    if (!kv) {
-      return jsonResponse({ success: false, error: 'KV not available' }, 500);
-    }
     
     // Get daily PINs
     const today = new Date().toISOString().split('T')[0];
@@ -88,8 +84,6 @@ export async function onRequest(context) {
       expirationTtl: 86400
     });
     
-    console.log(`✅ Queue Exit: ${clinic} - User ${user} - Duration: ${durationMinutes}min`);
-    
     return jsonResponse({
       success: true,
       clinic: clinic,
@@ -101,21 +95,16 @@ export async function onRequest(context) {
     });
     
   } catch (error) {
-    console.error('Queue done error:', error);
-    return jsonResponse({ success: false, error: error.message }, 500);
+    return jsonResponse({ 
+      success: false, 
+      error: error.message,
+      timestamp: new Date().toISOString()
+    }, 500);
   }
 }
 
 // Handle OPTIONS for CORS
 export async function onRequestOptions() {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      'Access-Control-Allow-Origin': '*',
-      'Access-Control-Allow-Methods': 'POST, OPTIONS',
-      'Access-Control-Allow-Headers': 'Content-Type',
-      'Access-Control-Max-Age': '86400'
-    }
-  });
+  return corsResponse(['POST', 'OPTIONS']);
 }
 

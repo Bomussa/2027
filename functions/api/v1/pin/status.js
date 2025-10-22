@@ -1,7 +1,7 @@
 // Get daily PINs for all clinics
 // PINs are static per clinic and change daily at 05:00 Asia/Qatar
 
-// Direct KV access
+import { jsonResponse } from '../../../_shared/utils.js';
 
 const CLINICS = [
   'lab', 'xray', 'eyes', 'internal', 'ent', 'surgery', 
@@ -14,18 +14,36 @@ function generatePin() {
   return String(Math.floor(Math.random() * 90) + 10);
 }
 
-// Generate unique PINs for all clinics
+// Generate unique PINs for all clinics with guaranteed uniqueness
 function generateDailyPins() {
   const pins = {};
   const used = new Set();
   
   for (const clinic of CLINICS) {
     let pin;
+    let attempts = 0;
+    const maxAttempts = 100; // Prevent infinite loop
+    
     do {
       pin = generatePin();
+      attempts++;
+      
+      // If we've tried too many times, throw error
+      if (attempts > maxAttempts) {
+        throw new Error('Failed to generate unique PIN after maximum attempts');
+      }
     } while (used.has(pin));
+    
     used.add(pin);
     pins[clinic] = pin;
+  }
+  
+  // Verify all PINs are unique
+  const pinValues = Object.values(pins);
+  const uniquePins = new Set(pinValues);
+  
+  if (pinValues.length !== uniquePins.size) {
+    throw new Error('Duplicate PINs detected - regenerating');
   }
   
   return pins;
@@ -43,6 +61,13 @@ export async function onRequest(context) {
   
   try {
     const kv = env.KV_PINS;
+    if (!kv) {
+      return jsonResponse({ 
+        success: false, 
+        error: 'KV_PINS not available' 
+      }, 500);
+    }
+    
     const today = getQatarDate();
     const key = `pins:daily:${today}`;
     
@@ -64,28 +89,31 @@ export async function onRequest(context) {
       });
     }
     
-    return new Response(JSON.stringify({
+    // Transform pins to include metadata
+    const pinsWithMetadata = {};
+    for (const [clinic, pin] of Object.entries(pins)) {
+      pinsWithMetadata[clinic] = {
+        pin: pin,
+        clinic: clinic,
+        active: true,
+        generatedAt: new Date().toISOString()
+      };
+    }
+    
+    return jsonResponse({
       success: true,
       date: today,
       reset_time: "05:00",
       timezone: "Asia/Qatar",
-      pins: pins
-    }), {
-      status: 200,
-      headers: { 
-        'Content-Type': 'application/json; charset=utf-8',
-        'Cache-Control': 'public, max-age=3600'
-      }
+      pins: pinsWithMetadata
     });
     
   } catch (error) {
-    return new Response(JSON.stringify({
+    return jsonResponse({
       success: false,
-      error: error.message
-    }), {
-      status: 500,
-      headers: { 'Content-Type': 'application/json; charset=utf-8' }
-    });
+      error: error.message,
+      timestamp: new Date().toISOString()
+    }, 500);
   }
 }
 

@@ -10,7 +10,7 @@ import EnhancedThemeSelector from './components/EnhancedThemeSelector'
 import api from './lib/api-unified'
 import enhancedApi from './lib/enhanced-api'
 
-import { themes } from './lib/utils'
+import { themes, medicalPathways } from './lib/utils'
 import { enhancedMedicalThemes, generateThemeCSS } from './lib/enhanced-themes'
 import { t, getCurrentLanguage, setCurrentLanguage } from './lib/i18n'
 
@@ -200,12 +200,43 @@ function App() {
 
   const handleExamSelection = async (examType) => {
     try {
-      const updatedData = await api.selectExam(patientData.id, examType)
-      setPatientData({ ...patientData, queueType: examType, ...updatedData })
+      // Get first clinic from medical pathway based on exam type and gender
+      const pathway = medicalPathways[examType]?.[patientData.gender] || []
+      if (pathway.length === 0) {
+        throw new Error('No clinics found for this exam type')
+      }
+      
+      const firstClinic = pathway[0].id
+      
+      // Enter queue for the first clinic
+      const queueData = await api.enterQueue(firstClinic, patientData.id, false)
+      
+      if (!queueData.success) {
+        throw new Error(queueData.error || 'Failed to enter queue')
+      }
+      
+      // Update patient data with queue information
+      setPatientData({
+        ...patientData,
+        queueType: examType,
+        currentClinic: firstClinic,
+        queueNumber: queueData.display_number || queueData.number,
+        ahead: queueData.ahead || 0,
+        pathway: pathway
+      })
+      
       setCurrentView('patient')
+      
+      showNotification(
+        language === 'ar' ? 'تم التسجيل بنجاح في قائمة الانتظار' : 'Successfully registered in queue',
+        'success'
+      )
     } catch (error) {
-      // Exam selection failed
-      alert(t('examSelected', language))
+      console.error('Exam selection failed:', error)
+      showNotification(
+        language === 'ar' ? 'فشل التسجيل في قائمة الانتظار' : 'Failed to register in queue',
+        'error'
+      )
     }
   }
 

@@ -104,8 +104,8 @@ export function EnhancedAdminDashboard({ language, onLogout }) {
   useEffect(() => {
     fetchData()
 
-    // تحديث البيانات كل 30 ثانية
-    const interval = setInterval(fetchData, 30000)
+    // تحديث البيانات كل 15 ثانية (لوحة الإحصائيات)
+    const interval = setInterval(fetchData, 15000)
 
     return () => clearInterval(interval)
   }, [])

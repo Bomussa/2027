@@ -259,8 +259,8 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     // تحديث فوري
     updateQueueStatus();
     
-    // تحديث كل ثانية واحدة للدقة اللحظية الفورية
-    const interval = setInterval(updateQueueStatus, 1000);
+    // تحديث كل 5 ثوانٍ لتوازن الأداء والسرعة
+    const interval = setInterval(updateQueueStatus, 5000);
     
     return () => clearInterval(interval);
   }, [patientData?.id, stations, language]);

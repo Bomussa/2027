@@ -53,13 +53,13 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
         setStats(event.data)
       }
     })
-    // Polling احتياطي كل 5 ثوانٍ
+    // Polling احتياطي كل 10 ثوانٍ (الإدارة لا تحتاج تحديث سريع)
     const interval = setInterval(() => {
       loadStats()
       loadActivePins()
       loadQueues()
       loadRecentReports()
-    }, 5000)
+    }, 10000)
     return () => {
       clearInterval(interval)
       if (sseRef.current) sseRef.current.close()

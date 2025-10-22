@@ -5,7 +5,7 @@ export async function onRequestGet(context) {
   const { env } = context;
   
   try {
-    const kv = env.MMC_KV;
+    const kv = env.KV_QUEUES;
     
     // List of all clinics
     const clinics = [

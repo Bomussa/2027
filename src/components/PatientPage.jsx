@@ -46,7 +46,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     
     fetchDailyPins()
     // تحديث كل 5 دقائق
-    const interval = setInterval(fetchDailyPins, 5 * 60 * 1000)
+    const interval = setInterval(() => { if (!document.hidden) fetchDailyPins() }, 5 * 60 * 1000)
     return () => clearInterval(interval)
   }, [])
 
@@ -195,6 +195,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     if (!patientData?.id || stations.length === 0) return;
     
     const updateQueueStatus = async () => {
+      if (document.hidden) return;
       for (const station of stations) {
         if (station.isEntered && station.status === 'ready') {
           try {
@@ -232,7 +233,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
                         }
                       }
                       
-                     setTimeout(() => setCurrentNotice(null), 5000);
+                     setTimeout(() => setCurrentNotice(null), 7000);
                     }
                   }
                   
@@ -261,7 +262,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     
     // Fallback polling كل 60 ثانية فقط (في حالة فشل SSE)
     // SSE هو المصدر الرئيسي للتحديثات اللحظية
-    const interval = setInterval(updateQueueStatus, 60000);
+    const interval = setInterval(updateQueueStatus, 20000);
     
     return () => clearInterval(interval);
   }, [patientData?.id, stations, language]);
@@ -286,7 +287,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
         });
         
         enhancedApi.playNotificationSound();
-        setTimeout(() => setCurrentNotice(null), 5000);
+        setTimeout(() => setCurrentNotice(null), 7000);
       } catch (err) {
         console.error('SSE parse error:', err);
       }

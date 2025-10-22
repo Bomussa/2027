@@ -1,6 +1,6 @@
 // SSE endpoint for real-time notifications
 // Cloudflare Pages Functions format
-// Updated to work with current queue structure
+// Updated to work with unified queue structure
 
 export const onRequestGet = async (context) => {
   const { request, env } = context;
@@ -38,63 +38,82 @@ export const onRequestGet = async (context) => {
       if (!kv) return;
 
       const listKey = `queue:list:${clinic}`;
-      const statusKey = `queue:status:${clinic}`;
       const userKey = `queue:user:${clinic}:${user}`;
+      const currentKey = `queue:current:${clinic}`;
       
-      // Get queue list and status
+      // Get queue list, user entry, and current patient
       const queueList = await kv.get(listKey, { type: 'json' }) || [];
-      const status = await kv.get(statusKey, { type: 'json' }) || { current: null, served: [] };
       const userEntry = await kv.get(userKey, { type: 'json' });
+      const currentData = await kv.get(currentKey, { type: 'json' });
       
-      if (!userEntry || !userEntry.number) return;
+      if (!userEntry) return;
+      
+      // Check if user is done
+      if (userEntry.status === 'DONE') {
+        sendEvent('queue_update', {
+          type: 'COMPLETED',
+          clinic,
+          user,
+          message: '✅ تم الانتهاء من الفحص',
+          messageEn: '✅ Examination completed',
+          timestamp: Date.now()
+        });
+        return;
+      }
       
       const userNumber = userEntry.number;
       
-      // Calculate position in queue
-      let position = 0;
-      let ahead = 0;
+      // Get only WAITING patients
+      const waitingPatients = queueList.filter(item => item.status === 'WAITING');
       
-      if (status.current) {
-        // Someone is being served
-        // Count how many are ahead of us (between current and us)
-        ahead = queueList.filter(item => 
-          item.number > status.current && 
-          item.number < userNumber &&
-          !status.served.includes(item.number)
-        ).length;
-        position = ahead + 1; // +1 because current is position 0
-      } else {
-        // No one being served yet
-        ahead = queueList.filter(item => 
-          item.number < userNumber &&
-          !status.served.includes(item.number)
-        ).length;
-        position = ahead + 1;
+      // Sort by entry time to ensure correct order
+      waitingPatients.sort((a, b) => {
+        const timeA = new Date(a.entered_at).getTime();
+        const timeB = new Date(b.entered_at).getTime();
+        return timeA - timeB;
+      });
+      
+      // Find user position in waiting list
+      const myIndex = waitingPatients.findIndex(item => item.user === user);
+      
+      if (myIndex === -1) {
+        // User not in waiting list - might be in service or done
+        if (userEntry.status === 'IN_SERVICE') {
+          sendEvent('queue_update', {
+            type: 'IN_SERVICE',
+            clinic,
+            user,
+            number: userNumber,
+            message: '🏥 أنت الآن داخل العيادة',
+            messageEn: '🏥 You are now in the clinic',
+            timestamp: Date.now()
+          });
+        }
+        return;
       }
       
-      // Total waiting
-      const totalWaiting = queueList.filter(item => 
-        !status.served.includes(item.number)
-      ).length;
+      const position = myIndex + 1; // 1-based position
+      const ahead = myIndex; // 0-based ahead count
+      const totalWaiting = waitingPatients.length;
       
       // Determine notification type based on position
       let notificationType = null;
       let shouldNotify = false;
       
-      if (ahead === 0 && !status.current) {
-        // User is first and no one is being served - YOUR TURN
+      if (ahead === 0) {
+        // User is first in line - YOUR TURN
         notificationType = 'YOUR_TURN';
         shouldNotify = lastNotificationType !== 'YOUR_TURN';
-      } else if (ahead === 0 && status.current && status.current !== userNumber) {
-        // User is next (current is being served)
+      } else if (ahead === 1) {
+        // User is second in line - NEXT
         notificationType = 'NEXT_IN_LINE';
         shouldNotify = lastNotificationType !== 'NEXT_IN_LINE';
-      } else if (ahead === 1) {
-        // User is second in line
-        notificationType = 'NEAR_TURN';
-        shouldNotify = lastNotificationType !== 'NEAR_TURN';
       } else if (ahead === 2) {
         // User is third in line
+        notificationType = 'NEAR_TURN';
+        shouldNotify = lastNotificationType !== 'NEAR_TURN';
+      } else if (ahead === 3) {
+        // User is fourth in line
         notificationType = 'ALMOST_READY';
         shouldNotify = lastNotificationType !== 'ALMOST_READY';
       } else if (position !== lastPosition) {
@@ -110,20 +129,20 @@ export const onRequestGet = async (context) => {
         
         switch (notificationType) {
           case 'YOUR_TURN':
-            message = '🔔 حان دورك الآن!';
-            messageEn = '🔔 Your turn now!';
+            message = '🔔 حان دورك الآن! توجه إلى العيادة';
+            messageEn = '🔔 Your turn now! Go to the clinic';
             break;
           case 'NEXT_IN_LINE':
-            message = '⏰ أنت التالي - استعد';
-            messageEn = '⏰ You are next - Get ready';
+            message = '⏰ أنت التالي - استعد من فضلك';
+            messageEn = '⏰ You are next - Please get ready';
             break;
           case 'NEAR_TURN':
-            message = '⏰ اقترب دورك';
-            messageEn = '⏰ Near your turn';
+            message = '⏰ اقترب دورك - أنت الثالث';
+            messageEn = '⏰ Near your turn - You are third';
             break;
           case 'ALMOST_READY':
-            message = '📋 استعد - أنت الثالث';
-            messageEn = '📋 Get ready - You are third';
+            message = '📋 استعد - أنت الرابع';
+            messageEn = '📋 Get ready - You are fourth';
             break;
           case 'POSITION_UPDATE':
             message = `📊 موقعك: ${position} من ${totalWaiting}`;
@@ -139,7 +158,7 @@ export const onRequestGet = async (context) => {
           ahead,
           total: totalWaiting,
           number: userNumber,
-          current: status.current,
+          current: currentData ? currentData.number : null,
           message,
           messageEn,
           timestamp: Date.now()

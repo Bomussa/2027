@@ -6,7 +6,6 @@ export async function onRequestGet(context) {
   
   try {
     const kv = env.KV_QUEUES;
-    const dateKey = new Date().toISOString().split('T')[0];
     
     // List of all clinics with names
     const clinics = [
@@ -32,10 +31,10 @@ export async function onRequestGet(context) {
     
     // Get stats for each clinic
     for (const clinic of clinics) {
-      const queueKey = `queue:${clinic.id}:${dateKey}`;
+      const queueKey = `queue:list:${clinic.id}`;
       const queueData = await kv.get(queueKey, { type: 'json' });
       
-      if (!queueData) {
+      if (!queueData || !Array.isArray(queueData) || queueData.length === 0) {
         // No data for this clinic today
         queues.push({
           clinic: clinic.id,
@@ -50,16 +49,21 @@ export async function onRequestGet(context) {
         continue;
       }
       
-      const waiting = queueData.waiting ? queueData.waiting.length : 0;
-      const inService = queueData.in ? queueData.in.length : 0;
-      const completed = queueData.done ? queueData.done.length : 0;
-      const total = waiting + inService + completed;
+      // Count by status
+      const waiting = queueData.filter(item => item.status === 'WAITING').length;
+      const inService = queueData.filter(item => item.status === 'IN_SERVICE').length;
+      const completed = queueData.filter(item => item.status === 'DONE' || item.status === 'COMPLETED').length;
+      const total = queueData.length;
+      
+      // Get current patient (first in waiting or in service)
+      const currentPatient = queueData.find(item => item.status === 'IN_SERVICE') || 
+                            (waiting > 0 ? queueData.find(item => item.status === 'WAITING') : null);
       
       queues.push({
         clinic: clinic.id,
         name: clinic.name,
-        current: queueData.current || null,
-        current_display: completed + 1,
+        current: currentPatient ? currentPatient.number : null,
+        current_display: currentPatient ? currentPatient.number : 0,
         total: total,
         waiting: waiting,
         completed: completed,

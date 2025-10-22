@@ -29,35 +29,29 @@ export async function onRequest(context) {
     
     const kv = env.KV_QUEUES;
     
-    // Get queue status
-    const statusKey = `queue:status:${clinic}`;
-    const statusData = await kv.get(statusKey, { type: 'json' });
-    const status = statusData || { current: null, served: [] };
-    
-    // Ensure served array exists
-    if (!status.served) {
-      status.served = [];
-    }
-    
     // Get queue list
     const listKey = `queue:list:${clinic}`;
     const queueList = await kv.get(listKey, { type: 'json' }) || [];
     
-    // Calculate waiting
-    let waiting = 0;
-    if (status.current) {
-      waiting = queueList.filter(item => item.number > status.current).length;
-    } else {
-      waiting = queueList.length;
-    }
+    // Get current patient
+    const currentKey = `queue:current:${clinic}`;
+    const currentData = await kv.get(currentKey, { type: 'json' });
+    
+    // Count by status
+    const waiting = queueList.filter(item => item.status === 'WAITING').length;
+    const inService = queueList.filter(item => item.status === 'IN_SERVICE').length;
+    const completed = queueList.filter(item => item.status === 'DONE' || item.status === 'COMPLETED').length;
+    const total = queueList.length;
     
     return jsonResponse({
       success: true,
       clinic: clinic,
-      current: status.current,
-      current_display: status.served.length + 1,
-      length: queueList.length,
-      waiting: waiting
+      current: currentData ? currentData.number : null,
+      current_display: currentData ? currentData.number : 0,
+      total: total,
+      waiting: waiting,
+      in_service: inService,
+      completed: completed
     });
     
   } catch (error) {

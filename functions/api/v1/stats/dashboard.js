@@ -21,28 +21,32 @@ export async function onRequestGet(context) {
     let waitTimeCount = 0;
     
     // Get stats for each clinic
-    const dateKey = new Date().toISOString().split('T')[0];
-    
     for (const clinic of clinics) {
-      const queueKey = `queue:${clinic}:${dateKey}`;
-      const queueData = await kv.get(queueKey, { type: 'json' });
+      const listKey = `queue:list:${clinic}`;
+      const queueList = await kv.get(listKey, { type: 'json' });
       
-      if (!queueData) continue;
+      if (!queueList || !Array.isArray(queueList) || queueList.length === 0) {
+        continue;
+      }
       
       // Count waiting patients
-      if (queueData.waiting && queueData.waiting.length > 0) {
-        totalWaiting += queueData.waiting.length;
+      const waiting = queueList.filter(item => item.status === 'WAITING').length;
+      if (waiting > 0) {
+        totalWaiting += waiting;
         activeQueues++;
       }
       
-      // Count completed
-      if (queueData.done && Array.isArray(queueData.done)) {
-        completedToday += queueData.done.length;
+      // Count completed patients by checking individual user records
+      for (const item of queueList) {
+        const userKey = `queue:user:${clinic}:${item.user}`;
+        const userData = await kv.get(userKey, { type: 'json' });
         
-        // Calculate wait times
-        for (const entry of queueData.done) {
-          if (entry.issuedAt && entry.calledAt) {
-            const waitTime = new Date(entry.calledAt) - new Date(entry.issuedAt);
+        if (userData && userData.status === 'DONE') {
+          completedToday++;
+          
+          // Calculate wait time if available
+          if (userData.entered_at && userData.exit_time) {
+            const waitTime = new Date(userData.exit_time) - new Date(userData.entered_at);
             totalWaitTime += waitTime;
             waitTimeCount++;
           }

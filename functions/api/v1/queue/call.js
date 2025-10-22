@@ -25,35 +25,55 @@ export async function onRequestPost(context) {
 
     const kv = env.KV_QUEUES;
     
-    // Get current status
-    const statusKey = `queue:status:${clinic}`;
-    const status = await kv.get(statusKey, 'json') || { current: 0, length: 0 };
+    // Get queue list
+    const listKey = `queue:list:${clinic}`;
+    const queueList = await kv.get(listKey, 'json') || [];
     
-    // Get counter to verify there are patients
-    const counterKey = `queue:counter:${clinic}`;
-    const counter = await kv.get(counterKey, 'text');
-    const total = counter ? parseInt(counter) : 0;
+    // Filter only waiting patients
+    const waitingPatients = queueList.filter(item => item.status === 'WAITING');
     
-    if (total === 0) {
+    if (waitingPatients.length === 0) {
       return jsonResponse({
         success: false,
-        error: 'No patients in queue'
+        error: 'No patients waiting'
       }, 404);
     }
     
-    // Advance to next patient
-    const nextNumber = (status.current || 0) + 1;
+    // Get first waiting patient
+    const nextPatient = waitingPatients[0];
     
-    if (nextNumber > total) {
-      return jsonResponse({
-        success: false,
-        error: 'No more patients waiting'
-      }, 404);
+    // Update patient status to IN_SERVICE
+    const userKey = `queue:user:${clinic}:${nextPatient.user}`;
+    const userData = await kv.get(userKey, 'json');
+    
+    if (userData) {
+      userData.status = 'IN_SERVICE';
+      userData.called_at = new Date().toISOString();
+      
+      await kv.put(userKey, JSON.stringify(userData), {
+        expirationTtl: 86400
+      });
     }
     
-    // Update status
-    status.current = nextNumber;
-    await kv.put(statusKey, JSON.stringify(status), {
+    // Update in queue list
+    const updatedList = queueList.map(item => {
+      if (item.user === nextPatient.user) {
+        return { ...item, status: 'IN_SERVICE' };
+      }
+      return item;
+    });
+    
+    await kv.put(listKey, JSON.stringify(updatedList), {
+      expirationTtl: 86400
+    });
+    
+    // Save current number
+    const currentKey = `queue:current:${clinic}`;
+    await kv.put(currentKey, JSON.stringify({
+      number: nextPatient.number,
+      user: nextPatient.user,
+      called_at: new Date().toISOString()
+    }), {
       expirationTtl: 86400
     });
     
@@ -63,7 +83,8 @@ export async function onRequestPost(context) {
       await env.KV_EVENTS.put(eventKey, JSON.stringify({
         type: 'CALL_NEXT',
         clinic: clinic,
-        number: nextNumber,
+        number: nextPatient.number,
+        user: nextPatient.user,
         timestamp: new Date().toISOString()
       }), {
         expirationTtl: 3600 // 1 hour
@@ -73,8 +94,8 @@ export async function onRequestPost(context) {
     return jsonResponse({
       success: true,
       clinic: clinic,
-      number: nextNumber,
-      waiting: Math.max(0, total - nextNumber)
+      number: nextPatient.number,
+      waiting: waitingPatients.length - 1
     });
 
   } catch (error) {

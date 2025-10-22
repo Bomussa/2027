@@ -38,7 +38,7 @@ export async function onRequestGet(context) {
       }, 404);
     }
     
-    // If already done, return completed status with -1
+    // If already done, return completed status
     if (userQueue.status === 'DONE') {
       return jsonResponse({
         success: true,
@@ -54,41 +54,32 @@ export async function onRequestGet(context) {
     const listKey = `queue:list:${clinic}`;
     const queueList = await kv.get(listKey, 'json') || [];
     
-    // Get queue status
-    const statusKey = `queue:status:${clinic}`;
-    const status = await kv.get(statusKey, 'json') || { current: null, served: [] };
+    // Get only WAITING patients
+    const waitingPatients = queueList.filter(item => item.status === 'WAITING');
     
-    // VERIFICATION 1: Get only ACTIVE (WAITING) patients
-    const activePromises = queueList.map(async (item) => {
-      const itemUserKey = `queue:user:${clinic}:${item.user}`;
-      const itemData = await kv.get(itemUserKey, 'json');
-      
-      // Only include if status is WAITING (not DONE)
-      if (itemData && itemData.status === 'WAITING') {
-        return {
-          ...item,
-          number: itemData.number,
-          entered_at: itemData.entered_at
-        };
-      }
-      return null;
-    });
-    
-    const activeQueue = (await Promise.all(activePromises)).filter(Boolean);
-    
-    // VERIFICATION 2: Sort by entry time to ensure correct order
-    activeQueue.sort((a, b) => {
+    // Sort by entry time to ensure correct order
+    waitingPatients.sort((a, b) => {
       const timeA = new Date(a.entered_at).getTime();
       const timeB = new Date(b.entered_at).getTime();
       return timeA - timeB;
     });
     
-    // Calculate position based on entry time
-    const myEntryTime = new Date(userQueue.entered_at).getTime();
-    const myIndex = activeQueue.findIndex(item => item.user === user);
+    // Find user position in waiting list
+    const myIndex = waitingPatients.findIndex(item => item.user === user);
     
-    // If not found in active queue, user might be done
+    // If not found in waiting list, check if in service
     if (myIndex === -1) {
+      if (userQueue.status === 'IN_SERVICE') {
+        return jsonResponse({
+          success: true,
+          status: 'IN_SERVICE',
+          display_number: 0,
+          ahead: 0,
+          total_waiting: waitingPatients.length,
+          message: 'Currently in service'
+        });
+      }
+      
       return jsonResponse({
         success: true,
         status: 'DONE',
@@ -111,7 +102,7 @@ export async function onRequestGet(context) {
     // 1+ = Waiting (في الانتظار)
     let displayNumber;
     if (ahead === 0) {
-      // First in queue = currently being served
+      // First in queue = currently being served or next
       displayNumber = 0;
     } else {
       // Waiting = show position (1, 2, 3, ...)
@@ -125,10 +116,10 @@ export async function onRequestGet(context) {
       success: true,
       clinic: clinic,
       user: user,
-      status: ahead === 0 ? 'IN_SERVICE' : 'WAITING',
+      status: ahead === 0 ? 'NEXT' : 'WAITING',
       display_number: displayNumber,
       ahead: ahead,
-      total_waiting: activeQueue.length,
+      total_waiting: waitingPatients.length,
       estimated_wait_minutes: estimatedMinutes,
       verified_at: new Date().toISOString(),
       verification_method: 'real_time_kv_check'

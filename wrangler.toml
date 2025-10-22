@@ -2,29 +2,32 @@ name = "2027"
 compatibility_date = "2025-10-22"
 pages_build_output_dir = "dist"
 
+# توحيد جميع KV Bindings على MMS_CACHE
+# جميع المفاتيح تشير الآن إلى نفس KV namespace لتوحيد البيانات ومنع التعطل
+
 [[kv_namespaces]]
 binding = "KV_ADMIN"
-id = "fd4470d6a7f34709b3486b1ab0ade4e7"
+id = "1d3d4e6c12174b7797b356234794e7e5"  # MMS_CACHE
 
 [[kv_namespaces]]
 binding = "KV_PINS"
-id = "7d71bfe9e606486f9124400a4f3c34e2"
+id = "1d3d4e6c12174b7797b356234794e7e5"  # MMS_CACHE
 
 [[kv_namespaces]]
 binding = "KV_QUEUES"
-id = "046e391c8e6d4120b3619fa69456fc72"
+id = "1d3d4e6c12174b7797b356234794e7e5"  # MMS_CACHE
 
 [[kv_namespaces]]
 binding = "KV_EVENTS"
-id = "250f2f79e4fe4d42b1db529123a3f5a1"
+id = "1d3d4e6c12174b7797b356234794e7e5"  # MMS_CACHE
 
 [[kv_namespaces]]
 binding = "KV_LOCKS"
-id = "99b12b0fa33e4d57a8bd1447ab80236f"
+id = "1d3d4e6c12174b7797b356234794e7e5"  # MMS_CACHE
 
 [[kv_namespaces]]
 binding = "KV_CACHE"
-id = "1d3d4e6c12174b7797b356234794e7e5"
+id = "1d3d4e6c12174b7797b356234794e7e5"  # MMS_CACHE
 
 [vars]
 TIMEZONE = "Asia/Qatar"

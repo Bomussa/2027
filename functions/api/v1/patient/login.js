@@ -78,9 +78,9 @@ export const onRequestPost = async (context) => {
     sessions.set(sessionId, patientData);
 
     // Try to store in KV if available
-    if (env?.KV_CACHE) {
+    if (env?.MMS_CACHE) {
       try {
-        await env.KV_CACHE.put(
+        await env.MMS_CACHE.put(
           `patient:${sessionId}`,
           JSON.stringify(patientData),
           { expirationTtl: 86400 } // 24 hours

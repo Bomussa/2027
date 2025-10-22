@@ -25,22 +25,31 @@ export async function onRequest(context) {
       return jsonResponse(kvError, 500);
     }
     
+    // Check KV_PINS availability
+    const kvPinsError = checkKVAvailability(env.KV_PINS, 'KV_PINS');
+    if (kvPinsError) {
+      return jsonResponse(kvPinsError, 500);
+    }
+    
     const kv = env.KV_QUEUES;
     
-    // Get daily PINs
+    // Get daily PINs from KV_PINS (not KV_QUEUES)
     const today = new Date().toISOString().split('T')[0];
     const pinsKey = `pins:daily:${today}`;
-    const dailyPins = await kv.get(pinsKey, 'json');
+    const dailyPins = await env.KV_PINS.get(pinsKey, 'json');
     
     if (!dailyPins) {
       return jsonResponse({ success: false, error: 'Daily PINs not found' }, 404);
     }
     
     // Verify PIN
-    const correctPin = dailyPins[clinic];
-    if (!correctPin) {
+    const clinicPinData = dailyPins[clinic];
+    if (!clinicPinData) {
       return jsonResponse({ success: false, error: 'PIN not found for this clinic' }, 404);
     }
+    
+    // Extract PIN from object or use directly if string
+    const correctPin = typeof clinicPinData === 'object' ? clinicPinData.pin : clinicPinData;
     
     if (String(pin) !== String(correctPin)) {
       return jsonResponse({ 

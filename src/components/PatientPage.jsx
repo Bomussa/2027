@@ -185,7 +185,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     }
   }, [patientData?.id])
 
-  // تحديث لحظي لحالة الطابور من الباك اند
+  // تحديث لحظي لحالة الطابور من الباك اند باستخدام position endpoint
   useEffect(() => {
     if (!patientData?.id || stations.length === 0) return;
     
@@ -193,28 +193,44 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
       for (const station of stations) {
         if (station.isEntered && station.status === 'ready') {
           try {
-            const queueStatus = await api.getQueueStatus(station.id);
-            if (queueStatus && queueStatus.success) {
+            // استخدام endpoint position للحصول على موقع دقيق
+            const positionData = await api.getQueuePosition(station.id, patientData.id);
+            if (positionData && positionData.success) {
               // تحديث الأرقام من الباك اند
               setStations(prev => prev.map(s => {
                 if (s.id === station.id) {
-                  // البحث عن موقع المريض في الطابور
-                  const myPosition = queueStatus.list?.findIndex(item => item.user === patientData.id) + 1 || s.yourNumber;
-                  const currentServing = queueStatus.current_serving || 0;
-                  const ahead = Math.max(0, myPosition - currentServing - 1);
-                  
                   return {
                     ...s,
-                    current: currentServing,
-                    yourNumber: myPosition,
-                    ahead: ahead
+                    yourNumber: positionData.display_number,
+                    ahead: positionData.ahead,
+                    totalWaiting: positionData.total_waiting,
+                    estimatedWait: positionData.estimated_wait_minutes
                   };
                 }
                 return s;
               }));
+              
+              // إشعار عند اقتراب الدور
+              if (positionData.display_number <= 3 && positionData.display_number > 0) {
+                const messages = {
+                  1: language === 'ar' ? '🔔 دورك الآن!' : '🔔 Your turn now!',
+                  2: language === 'ar' ? '⚠️ أنت الثاني - كن جاهزاً' : '⚠️ You are second - be ready',
+                  3: language === 'ar' ? 'ℹ️ أنت الثالث - استعد' : 'ℹ️ You are third - get ready'
+                };
+                
+                const message = messages[positionData.display_number];
+                if (message) {
+                  setCurrentNotice({
+                    type: 'queue_update',
+                    message: message,
+                    clinic: station.nameAr
+                  });
+                  setTimeout(() => setCurrentNotice(null), 5000);
+                }
+              }
             }
           } catch (err) {
-            console.error(`Failed to update queue status for ${station.id}:`, err);
+            console.error(`Failed to update queue position for ${station.id}:`, err);
           }
         }
       }
@@ -223,11 +239,11 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     // تحديث فوري
     updateQueueStatus();
     
-    // تحديث كل 5 ثواني
-    const interval = setInterval(updateQueueStatus, 5000);
+    // تحديث كل 3 ثواني للدقة اللحظية
+    const interval = setInterval(updateQueueStatus, 3000);
     
     return () => clearInterval(interval);
-  }, [patientData?.id, stations]);
+  }, [patientData?.id, stations, language]);
   
   // Connect to SSE for real-time notifications
   useEffect(() => {

@@ -2,22 +2,21 @@
 // Hook موحد لإدارة التحديثات عبر SSE أو Polling
 
 import { useEffect, useRef } from "react";
+import eventBus from '../core/event-bus.js';
 
 export default function useSmartUpdater({ url, onData, interval = 60000, useSSE = true }) {
-  const eventSourceRef = useRef(null);
   const timerRef = useRef(null);
+  const unsubscribeRef = useRef(null);
 
   useEffect(() => {
     if (useSSE) {
-      // ✅ بث مباشر عبر SSE فقط
-      const es = new EventSource(url);
-      es.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          onData(data);
-        } catch (_) {}
+      // ✅ استخدام eventBus بدلاً من EventSource المكرر
+      const handleEvent = (data) => {
+        onData(data);
       };
-      eventSourceRef.current = es;
+      
+      // الاشتراك في الأحداث من eventBus
+      unsubscribeRef.current = eventBus.on('*', handleEvent);
     } else {
       // 🕒 Polling خفيف للصفحات غير الحرجة
       const poll = async () => {
@@ -31,7 +30,7 @@ export default function useSmartUpdater({ url, onData, interval = 60000, useSSE 
     }
 
     return () => {
-      if (eventSourceRef.current) eventSourceRef.current.close();
+      if (unsubscribeRef.current) unsubscribeRef.current();
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [url, onData, interval, useSSE]);

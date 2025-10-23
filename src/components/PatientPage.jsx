@@ -239,14 +239,12 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
                         clinic: station.nameAr
                       });
                       
-                      // تشغيل صوت عند دورك الآن (0)
+                      // تشغيل صوت عند دورك الآن (0) - استخدام notification engine
                       if (positionData.display_number === 0) {
-                        try {
-                          const audio = new Audio('/notification.mp3');
-                          audio.play().catch(e => console.log('Audio play failed:', e));
-                        } catch (e) {
-                          console.log('Audio error:', e);
-                        }
+                        eventBus.emit('queue:your_turn', {
+                          clinicName: station.nameAr,
+                          position: positionData.display_number
+                        });
                       }
                       
                       setTimeout(() => setCurrentNotice(null), NEAR_TURN_REFRESH_INTERVAL);
@@ -341,16 +339,13 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     };
   }, [patientData?.id, stations, language]);
   
-  // Connect to SSE for real-time notifications
+  // Listen to real-time notifications via eventBus (no duplicate EventSource)
   useEffect(() => {
     if (!patientData?.id) return;
     
-    const url = `/api/v1/events/stream?user=${patientData.id}`;
-    const eventSource = new EventSource(url);
-    
-    eventSource.addEventListener('queue_update', (e) => {
+    // Listen to queue events from eventBus
+    const handleQueueUpdate = (data) => {
       try {
-        const data = JSON.parse(e.data);
         const message = language === 'ar' ? data.message : data.messageEn;
         
         setCurrentNotice({
@@ -360,24 +355,20 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
           clinic: data.clinic
         });
         
-        enhancedApi.playNotificationSound();
         setTimeout(() => setCurrentNotice(null), NEAR_TURN_REFRESH_INTERVAL);
       } catch (err) {
-        console.error('SSE parse error:', err);
+        console.error('Event bus parse error:', err);
       }
-    });
-    
-    eventSource.addEventListener('connected', (e) => {
-      console.log('SSE connected:', e.data);
-    });
-    
-    eventSource.onerror = (err) => {
-      console.error('SSE error:', err);
-      eventSource.close();
     };
+    
+    eventBus.on('queue:update', handleQueueUpdate);
+    eventBus.on('queue:near_turn', handleQueueUpdate);
+    eventBus.on('queue:your_turn', handleQueueUpdate);
 
     return () => {
-      eventSource.close();
+      eventBus.off('queue:update', handleQueueUpdate);
+      eventBus.off('queue:near_turn', handleQueueUpdate);
+      eventBus.off('queue:your_turn', handleQueueUpdate);
     };
   }, [patientData?.id, language])
 

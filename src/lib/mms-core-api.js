@@ -4,6 +4,8 @@
  * Falls back to LocalApiService if unavailable
  */
 
+import eventBus from '../core/event-bus.js';
+
 class MMSCoreAPI {
   constructor() {
     this.baseURL = 'http://localhost:4000/api';
@@ -123,40 +125,41 @@ class MMSCoreAPI {
     });
   }
 
-  // SSE Events Connection
+  // SSE Events Connection - استخدام eventBus
   connectToEvents(onMessage) {
     if (!this.isAvailable) {
       console.warn('MMS Core not available, SSE disabled');
       return null;
     }
 
-    const eventSource = new EventSource(`${this.baseURL}/events`);
-
-    eventSource.addEventListener('hello', (e) => {
-      console.log('MMS Core SSE connected:', e.data);
-    });
-
-    eventSource.addEventListener('notice', (e) => {
-      const notice = JSON.parse(e.data);
-      if (onMessage) onMessage(notice);
-    });
-
-    eventSource.addEventListener('queue:update', (e) => {
-      const update = JSON.parse(e.data);
-      if (onMessage) onMessage({ type: 'queue_update', ...update });
-    });
-
-    eventSource.addEventListener('queue:call', (e) => {
-      const call = JSON.parse(e.data);
-      if (onMessage) onMessage({ type: 'queue_call', ...call });
-    });
-
-    eventSource.onerror = (error) => {
-      console.error('MMS Core SSE error:', error);
-      eventSource.close();
+    // استخدام eventBus بدلاً من EventSource المكرر
+    const handleNotice = (data) => {
+      if (onMessage) onMessage(data);
     };
-
-    return eventSource;
+    
+    const handleQueueUpdate = (data) => {
+      if (onMessage) onMessage({ type: 'queue_update', ...data });
+    };
+    
+    const handleQueueCall = (data) => {
+      if (onMessage) onMessage({ type: 'queue_call', ...data });
+    };
+    
+    // الاشتراك في الأحداث
+    const unsubscribe1 = eventBus.on('notice', handleNotice);
+    const unsubscribe2 = eventBus.on('queue:update', handleQueueUpdate);
+    const unsubscribe3 = eventBus.on('queue:call', handleQueueCall);
+    
+    console.log('MMS Core SSE connected via eventBus');
+    
+    // إرجاع كائن يحاكي EventSource
+    return {
+      close: () => {
+        unsubscribe1();
+        unsubscribe2();
+        unsubscribe3();
+      }
+    };
   }
 }
 

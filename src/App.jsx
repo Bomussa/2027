@@ -7,7 +7,7 @@ import { PatientPage } from './components/PatientPage'
 import { AdminPage } from './components/AdminPage'
 import { QrScanPage } from './components/QrScanPage'
 import EnhancedThemeSelector from './components/EnhancedThemeSelector'
-import api from './lib/api-unified'
+import api from './lib/api'
 import enhancedApi from './lib/enhanced-api'
 
 import { themes, medicalPathways } from './lib/utils'
@@ -44,76 +44,8 @@ function App() {
     }
   }, [language])
 
-  // SSE notifications with sound (fallback-friendly)
-  useEffect(() => {
-    let es
-    let connected = false
-    let fallbackTimers = []
-
-    // Create notification sound using Web Audio API
-    const playNotificationSound = () => {
-      try {
-        const audioContext = new (window.AudioContext || window.webkitAudioContext)()
-
-        // Create a simple beep sound
-        const oscillator = audioContext.createOscillator()
-        const gainNode = audioContext.createGain()
-
-        oscillator.connect(gainNode)
-        gainNode.connect(audioContext.destination)
-
-        // Configure the sound
-        oscillator.frequency.value = 800 // Frequency in Hz (800 Hz = pleasant notification tone)
-        oscillator.type = 'sine' // Sine wave for smooth sound
-
-        // Set volume envelope (fade in/out for smooth sound)
-        gainNode.gain.setValueAtTime(0, audioContext.currentTime)
-        gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.01)
-        gainNode.gain.linearRampToValueAtTime(0.3, audioContext.currentTime + 0.1)
-        gainNode.gain.linearRampToValueAtTime(0, audioContext.currentTime + 0.2)
-
-        // Play the sound
-        oscillator.start(audioContext.currentTime)
-        oscillator.stop(audioContext.currentTime + 0.2)
-      } catch (e) {
-        // Audio generation failed silently
-      }
-    }
-
-    try {
-      es = new EventSource('/api/v1/events/stream')
-      es.onopen = () => { connected = true }
-      es.onmessage = (ev) => {
-        try {
-          const data = JSON.parse(ev.data || '{}')
-          if (data?.type === 'NEAR_TURN') {
-            const msg = language === 'ar' ? 'اقترب دورك' : 'Near your turn'
-            setNotif(msg)
-            showNotification(msg, 'info')
-            playNotificationSound()
-          }
-          if (data?.type === 'YOUR_TURN') {
-            const msg = language === 'ar' ? 'دورك الآن' : 'Your turn now'
-            setNotif(msg)
-            showNotification(msg, 'success')
-            playNotificationSound()
-          }
-        } catch { }
-      }
-      es.onerror = () => {
-        // Auto-retry after short delay
-        setTimeout(() => {
-          try { es && es.close() } catch { }
-          // new EventSource will be created by effect rerun only on mount; keep it simple
-        }, 3000)
-      }
-    } catch { }
-
-    // Cleanup on unmount
-    return () => {
-      try { es && es.close() } catch { }
-    }
-  }, [language])
+  // SSE notifications handled by notification-engine.js
+  // No need for duplicate EventSource here
 
   // تطبيق الثيم عند تغييره
   useEffect(() => {

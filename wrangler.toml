@@ -7,23 +7,23 @@ pages_build_output_dir = "dist"
 
 [[kv_namespaces]]
 binding = "KV_ADMIN"
-id = "1d3d4e6c12174b7797b356234794e7e5"  # MMS_CACHE
+id = "fd4470d6a7f34709b3486b1ab0ade4e7"
 
 [[kv_namespaces]]
 binding = "KV_PINS"
-id = "1d3d4e6c12174b7797b356234794e7e5"  # MMS_CACHE
+id = "7d71bfe9e606486f9124400a4f3c34e2"
 
 [[kv_namespaces]]
 binding = "KV_QUEUES"
-id = "1d3d4e6c12174b7797b356234794e7e5"  # MMS_CACHE
+id = "046e391c8e6d4120b3619fa69456fc72"
 
 [[kv_namespaces]]
 binding = "KV_EVENTS"
-id = "1d3d4e6c12174b7797b356234794e7e5"  # MMS_CACHE
+id = "250f2f79e4fe4d42b1db529123a3f5a1"
 
 [[kv_namespaces]]
 binding = "KV_LOCKS"
-id = "1d3d4e6c12174b7797b356234794e7e5"  # MMS_CACHE
+id = "99b12b0fa33e4d57a8bd1447ab80236f"
 
 [[kv_namespaces]]
 binding = "KV_CACHE"
@@ -31,7 +31,9 @@ id = "1d3d4e6c12174b7797b356234794e7e5"  # MMS_CACHE
 
 [vars]
 TIMEZONE = "Asia/Qatar"
-# Secrets (PIN_SECRET, JWT_SECRET, NOTIFY_KEY) are stored in:
+JWT_SECRET = "ff8d89d5d43df95e470553e76f3c4ca18f651ad4fdc6ab86b256f4883e6aa220"
+PIN_SECRET = "6a1f1a07787035f332b188d623a6395dc50de51bf90a62238ed25b5519ca3194"
+NOTIFY_KEY = "https://notify.mmc-mms.com/webhook"
 # - Local development: .dev.vars file (not committed to git)
 # - Production: Cloudflare Dashboard → Settings → Variables and Secrets
 

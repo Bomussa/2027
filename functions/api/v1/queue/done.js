@@ -25,77 +25,8 @@ export async function onRequest(context) {
       return jsonResponse(kvError, 500);
     }
     
-    // Check KV_PINS availability
-    const kvPinsError = checkKVAvailability(env.KV_PINS, 'KV_PINS');
-    if (kvPinsError) {
-      return jsonResponse(kvPinsError, 500);
-    }
-    
     const kv = env.KV_QUEUES;
-    
-    // Get daily PINs from KV_PINS (not KV_QUEUES)
-    const today = new Date().toISOString().split('T')[0];
-    const pinsKey = `pins:daily:${today}`;
-    const dailyPins = await env.KV_PINS.get(pinsKey, 'json');
-    
-    if (!dailyPins) {
-      return jsonResponse({ success: false, error: 'Daily PINs not found' }, 404);
-    }
-    
-    // Verify PIN - MUST match the specific clinic's PIN only
-    const clinicPinData = dailyPins[clinic];
-    
-    // Check if clinic exists in daily PINs
-    if (!clinicPinData) {
-      return jsonResponse({ 
-        success: false, 
-        error: 'لم يتم العثور على PIN لهذه العيادة',
-        message: 'PIN not found for this clinic' 
-      }, 404);
-    }
-    
-    // Extract PIN from object or use directly if string
-    const correctPin = typeof clinicPinData === 'object' ? clinicPinData.pin : clinicPinData;
-    
-    // Strict PIN validation - must match exactly
-    if (!pin || String(pin).trim() === '') {
-      return jsonResponse({ 
-        success: false, 
-        error: 'يجب إدخال رقم PIN',
-        message: 'PIN is required'
-      }, 400);
-    }
-    
-    // Normalize both PINs for comparison (remove spaces, ensure string)
-    const normalizedInputPin = String(pin).trim();
-    const normalizedCorrectPin = String(correctPin).trim();
-    
-    if (normalizedInputPin !== normalizedCorrectPin) {
-      return jsonResponse({ 
-        success: false, 
-        error: 'رقم PIN غير صحيح. يجب إدخال رقم PIN الخاص بهذه العيادة فقط',
-        message: 'Incorrect PIN. You must enter the PIN assigned to this specific clinic only',
-        clinic: clinic
-      }, 403);
-    }
-    
-    // Additional security check: verify PIN belongs to this clinic only
-    // Check if the entered PIN belongs to any other clinic
-    for (const [otherClinic, otherPinData] of Object.entries(dailyPins)) {
-      if (otherClinic !== clinic) {
-        const otherPin = typeof otherPinData === 'object' ? otherPinData.pin : otherPinData;
-        if (String(otherPin).trim() === normalizedInputPin) {
-          return jsonResponse({ 
-            success: false, 
-            error: `رقم PIN هذا يخص عيادة ${otherClinic} وليس ${clinic}`,
-            message: `This PIN belongs to ${otherClinic} clinic, not ${clinic}`,
-            correctClinic: otherClinic,
-            requestedClinic: clinic
-          }, 403);
-        }
-      }
-    }
-    
+
     // Get user entry
     const userKey = `queue:user:${clinic}:${user}`;
     const userEntry = await kv.get(userKey, 'json');
@@ -103,6 +34,40 @@ export async function onRequest(context) {
     if (!userEntry) {
       return jsonResponse({ success: false, error: 'User not in queue' }, 404);
     }
+
+    // New PIN logic: Verify PIN against the one stored with the user's entry
+    const userPin = userEntry.pin;
+
+    if (!userPin) {
+      return jsonResponse({ 
+        success: false, 
+        error: 'لم يتم العثور على PIN للمستخدم في قائمة الانتظار',
+        message: 'User PIN not found in queue entry' 
+      }, 404);
+    }
+
+    // Strict PIN validation - must match exactly the PIN stored with the user's entry
+    if (!pin || String(pin).trim() === '') {
+      return jsonResponse({ 
+        success: false, 
+        error: 'يجب إدخال رقم PIN',
+        message: 'PIN is required'
+      }, 400);
+    }
+
+    const normalizedInputPin = String(pin).trim();
+    const normalizedUserPin = String(userPin).trim();
+
+    if (normalizedInputPin !== normalizedUserPin) {
+      return jsonResponse({ 
+        success: false, 
+        error: 'رقم PIN غير صحيح. يجب إدخال رقم PIN الذي تم استخدامه عند الدخول إلى قائمة الانتظار',
+        message: 'Incorrect PIN. You must enter the PIN used when entering the queue',
+        clinic: clinic
+      }, 403);
+    }
+
+    // End new PIN logic
     
     // Calculate duration
     const now = new Date();

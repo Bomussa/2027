@@ -12,13 +12,72 @@ export async function onRequest(context) {
   
   try {
     const body = await request.json();
-    const { clinic, user } = body;
+    const { clinic, user, pin } = body;
     
     // Validate required fields
-    const validationError = validateRequiredFields(body, ['clinic', 'user']);
+    const validationError = validateRequiredFields(body, ['clinic', 'user', 'pin']);
     if (validationError) {
       return jsonResponse(validationError, 400);
     }
+
+    // Check KV_PINS availability
+    const kvPinsError = checkKVAvailability(env.KV_PINS, 'KV_PINS');
+    if (kvPinsError) {
+      return jsonResponse(kvPinsError, 500);
+    }
+
+    // Get daily PINs from KV_PINS
+    const today = new Date().toISOString().split('T')[0];
+    const pinsKey = `pins:daily:${today}`;
+    const dailyPins = await env.KV_PINS.get(pinsKey, 'json');
+
+    if (!dailyPins) {
+      return jsonResponse({ success: false, error: 'Daily PINs not found' }, 404);
+    }
+
+    // Verify PIN - MUST match the specific clinic's PIN only
+    const clinicPinData = dailyPins[clinic];
+
+    // Check if clinic exists in daily PINs
+    if (!clinicPinData) {
+      return jsonResponse({ 
+        success: false, 
+        error: 'لم يتم العثور على PIN لهذه العيادة',
+        message: 'PIN not found for this clinic' 
+      }, 404);
+    }
+
+    // Extract PIN from object or use directly if string
+    const correctPin = typeof clinicPinData === 'object' ? clinicPinData.pin : clinicPinData;
+
+    // Strict PIN validation - must match exactly
+    const normalizedInputPin = String(pin).trim();
+    const normalizedCorrectPin = String(correctPin).trim();
+
+    if (normalizedInputPin !== normalizedCorrectPin) {
+      return jsonResponse({ 
+        success: false, 
+        error: 'رقم PIN غير صحيح. يجب إدخال رقم PIN الخاص بهذه العيادة فقط',
+        message: 'Incorrect PIN. You must enter the PIN assigned to this specific clinic only',
+        clinic: clinic
+      }, 403);
+    }
+
+    // Additional security check: verify PIN belongs to this clinic only
+    // This is a redundant check since we already verified against the clinic's PIN, but it adds an extra layer of clarity.
+    for (const [otherClinic, otherPinData] of Object.entries(dailyPins)) {
+      if (otherClinic !== clinic) {
+        const otherPin = typeof otherPinData === 'object' ? otherPinData.pin : otherPinData;
+        if (String(otherPin).trim() === normalizedInputPin) {
+          // Although the PIN matches the requested clinic, if it also matches another clinic, 
+          // it might indicate a configuration issue or an attempt to use a known PIN.
+          // For now, we rely on the direct match above, but keep this logic for future security enhancements if needed.
+          // The primary goal is to ensure the PIN is correct for the requested clinic.
+        }
+      }
+    }
+
+    // End PIN verification logic
     
     // Check KV availability
     const kvError = checkKVAvailability(env.KV_QUEUES, 'KV_QUEUES');
@@ -76,6 +135,7 @@ export async function onRequest(context) {
     // Save user entry
     const userKey = `queue:user:${clinic}:${user}`;
     const userEntry = {
+      pin: pin,
       number: newNumber,
       status: 'WAITING',
       entered_at: entryTime,

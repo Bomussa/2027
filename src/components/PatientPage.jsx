@@ -208,14 +208,17 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
       
       const start = Date.now();
       try {
-        for (const station of stations) {
-          if (station.isEntered && station.status === 'ready') {
-            // استخدام endpoint position للحصول على موقع دقيق
-            const positionData = await api.getQueuePosition(station.id, patientData.id);
-            if (positionData && positionData.success) {
-              // تجنب التحديثات المكررة
-              const stateKey = `${station.id}-${positionData.display_number}`;
-              if (lastStateRef.current === stateKey) continue;
+        // ✅ إصلاح: إرسال طلب للعيادة الحالية فقط (تقليل 429 Errors)
+        const currentStation = stations.find(s => s.isEntered && s.status === 'ready');
+        
+        if (currentStation) {
+          // استخدام endpoint position للحصول على موقع دقيق
+          const station = currentStation;
+          const positionData = await api.getQueuePosition(station.id, patientData.id);
+          if (positionData && positionData.success) {
+            // تجنب التحديثات المكررة
+            const stateKey = `${station.id}-${positionData.display_number}`;
+            if (lastStateRef.current !== stateKey) {
               lastStateRef.current = stateKey;
               
               // تحديث الأرقام من الباك اند

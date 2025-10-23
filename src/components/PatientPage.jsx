@@ -202,6 +202,41 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     const MAX_RETRY = 3;
     const RECOVERY_DELAY = 5000; // 5 ثواني
     const lastStateRef = { current: null };
+    let pollingInterval = null;
+    let isSSEActive = false;
+    
+    // مراقبة حالة SSE
+    const handleSSEConnected = () => {
+      isSSEActive = true;
+      console.log('[PatientPage] ✅ SSE Active - Polling disabled');
+      // إيقاف Polling عند اتصال SSE
+      if (pollingInterval) {
+        clearInterval(pollingInterval);
+        pollingInterval = null;
+      }
+    };
+    
+    const handleSSEError = () => {
+      isSSEActive = false;
+      console.log('[PatientPage] ⚠️ SSE Inactive - Polling enabled');
+      // تفعيل Polling عند فشل SSE
+      if (!pollingInterval) {
+        pollingInterval = setInterval(() => {
+          updateQueueStatus();
+        }, dynamicInterval);
+      }
+    };
+    
+    // الاستماع لحالة SSE
+    const unsubscribeConnected = eventBus.on('sse:connected', handleSSEConnected);
+    const unsubscribeError = eventBus.on('sse:error', handleSSEError);
+    
+    // التحقق من حالة SSE الحالية
+    if (window.eventBusSSE?.isConnected()) {
+      handleSSEConnected();
+    } else {
+      handleSSEError();
+    }
     
     const updateQueueStatus = async () => {
       if (document.hidden) return;
@@ -316,10 +351,8 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     // تحديث فوري
     updateQueueStatus();
     
-    // Fallback polling مع الفترة الديناميكية
-    const interval = setInterval(() => {
-      updateQueueStatus();
-    }, dynamicInterval);
+    // Adaptive Polling: يعمل فقط إذا SSE غير نشط
+    // سيتم تفعيله/إيقافه تلقائياً حسب حالة SSE
     
     // Heartbeat لمراقبة الصفحة
     const heartbeatInterval = setInterval(() => {
@@ -337,7 +370,9 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     }, 60000);
     
     return () => {
-      clearInterval(interval);
+      if (pollingInterval) clearInterval(pollingInterval);
+      unsubscribeConnected();
+      unsubscribeError();
       clearInterval(heartbeatInterval);
     };
   }, [patientData?.id, stations, language]);

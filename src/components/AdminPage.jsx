@@ -23,6 +23,7 @@ import {
 } from 'lucide-react'
 import { themes } from '../lib/utils'
 import { enhancedMedicalThemes } from '../lib/enhanced-themes'
+import eventBus from '../core/event-bus'
 import { t } from '../lib/i18n'
 import api from '../lib/api'
 
@@ -37,11 +38,14 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
 
   // مرجع للاحتفاظ بكائن SSE
   const sseRef = useRef(null)
+  const pollingIntervalRef = useRef(null)
+  
   useEffect(() => {
     loadStats()
     loadActivePins()
     loadQueues()
     loadRecentReports()
+    
     // تفعيل SSE للتحديث اللحظي
     if (sseRef.current) sseRef.current.close()
     sseRef.current = api.connectSSE('admin', (event) => {
@@ -53,16 +57,42 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
         setStats(event.data)
       }
     })
-    // Fallback polling كل 60 ثانية فقط (في حالة فشل SSE)
-    // SSE هو المصدر الرئيسي للتحديثات
-    const interval = setInterval(() => {
-      loadStats()
-      loadActivePins()
-      loadQueues()
-      loadRecentReports()
-    }, 60000)
+    
+    // Adaptive Polling: يعمل فقط إذا SSE غير نشط
+    const handleSSEConnected = () => {
+      console.log('[AdminPage] ✅ SSE Active - Polling disabled');
+      if (pollingIntervalRef.current) {
+        clearInterval(pollingIntervalRef.current);
+        pollingIntervalRef.current = null;
+      }
+    };
+    
+    const handleSSEError = () => {
+      console.log('[AdminPage] ⚠️ SSE Inactive - Polling enabled');
+      if (!pollingIntervalRef.current) {
+        pollingIntervalRef.current = setInterval(() => {
+          loadStats()
+          loadActivePins()
+          loadQueues()
+          loadRecentReports()
+        }, 60000);
+      }
+    };
+    
+    const unsubscribeConnected = eventBus.on('sse:connected', handleSSEConnected);
+    const unsubscribeError = eventBus.on('sse:error', handleSSEError);
+    
+    // التحقق من حالة SSE الحالية
+    if (window.eventBusSSE?.isConnected()) {
+      handleSSEConnected();
+    } else {
+      handleSSEError();
+    }
+    
     return () => {
-      clearInterval(interval)
+      if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current)
+      unsubscribeConnected();
+      unsubscribeError();
       if (sseRef.current) sseRef.current.close()
     }
   }, [])

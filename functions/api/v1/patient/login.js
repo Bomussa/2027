@@ -73,6 +73,38 @@ export const onRequestPost = async (context) => {
       loginTime: new Date().toISOString(),
       status: 'logged_in'
     };
+    
+    // Create default path if not exists
+    if (env?.KV_ADMIN) {
+      const pathKey = `path:${patientId}`;
+      const existingPath = await env.KV_ADMIN.get(pathKey, 'json');
+      
+      if (!existingPath) {
+        // Default route for recruitment exam
+        const defaultRoute = ['vitals', 'lab', 'xray', 'ecg', 'audio', 'eyes', 'internal', 'ent', 'surgery', 'dental', 'psychiatry', 'derma', 'bones'];
+        
+        const pathData = {
+          patientId: patientId,
+          gender: gender,
+          route: defaultRoute,
+          current_clinic: defaultRoute[0],
+          current_index: 0,
+          status: 'IN_PROGRESS',
+          created_at: new Date().toISOString(),
+          progress: []
+        };
+        
+        await env.KV_ADMIN.put(pathKey, JSON.stringify(pathData), {
+          expirationTtl: 86400
+        });
+        
+        patientData.route = defaultRoute;
+        patientData.first_clinic = defaultRoute[0];
+      } else {
+        patientData.route = existingPath.route;
+        patientData.current_clinic = existingPath.current_clinic;
+      }
+    }
 
     // Store in memory first
     sessions.set(sessionId, patientData);

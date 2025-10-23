@@ -33,6 +33,7 @@
     "express": "^4.18.2",
     "helmet": "^7.1.0",
     "lucide-react": "^0.294.0",
+    "puppeteer": "^24.26.1",
     "qrcode": "^1.5.4",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",

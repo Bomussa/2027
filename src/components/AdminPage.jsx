@@ -24,7 +24,7 @@ import {
 import { themes } from '../lib/utils'
 import { enhancedMedicalThemes } from '../lib/enhanced-themes'
 import { t } from '../lib/i18n'
-import api from '../lib/api'
+import api from '../lib/api-selector'
 
 export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, onThemeChange }) {
   const [currentView, setCurrentView] = useState('dashboard')

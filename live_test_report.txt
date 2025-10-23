@@ -1,0 +1,272 @@
+=================================================================
+تقرير الاختبار المباشر المحلي
+=================================================================
+التاريخ: 2025-10-23
+المهندس: Lead Software Architect
+البيئة: Wrangler Pages Dev (localhost:8788)
+
+=================================================================
+
+=== الصفحة الرئيسية ===
+المسار: GET /
+الحالة: 200
+الاستجابة: <!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/medical_logo.jpg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Military Medical Committee - المركز الطبي العسكري</title>
+    <script type="module" crossorigin src="/assets/index-DDD7-ZaS.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-w_uPvzd_.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
+</html>
+   ❌ فشل (متوقع: ، فعلي: 200)
+
+=== أكواد الإدارة اليومية (MW) ===
+المسار: GET /mw/admin/pins/today
+الحالة: 200
+الاستجابة: {"pins":[]}
+   ❌ فشل (متوقع: ، فعلي: 200)
+
+=== أكواد الإدارة اليومية (API) ===
+المسار: GET /api/v1/pin/status
+الحالة: 200
+الاستجابة: {
+  "success": true,
+  "date": "2025-10-23",
+  "reset_time": "05:00",
+  "timezone": "Asia/Qatar",
+  "pins": {
+    "lab": {
+      "pin": "16",
+      "clinic": "lab",
+      "active": true,
+      "generatedAt": "2025-10-23T16:31:57.017Z"
+    },
+    "xray": {
+      "pin": "18",
+      "clinic": "xray",
+      "active": true,
+      "generatedAt": "2025-10-23T16:31:57.017Z"
+    },
+    "vitals": {
+      "pin": "08",
+      "clinic": "vitals",
+      "active": true,
+      "generatedAt": "2025-10-23T16:31:57.017Z"
+    },
+    "ecg": {
+      "pin": "20",
+      "clinic": "ecg",
+      "active": true,
+      "generatedAt": "2025-10-23T16:31:57.017Z"
+    },
+    "audio": {
+      "pin": "19",
+      "clinic": "audio",
+      "active": true,
+      "generatedAt": "2025-10-23T16:31:57.017Z"
+    },
+    "eyes": {
+      "pin": "07",
+      "clinic": "eyes",
+      "active": true,
+      "generatedAt": "2025-10-23T16:31:57.017Z"
+    },
+    "internal": {
+      "pin": "10",
+      "clinic": "internal",
+      "active": true,
+      "generatedAt": "2025-10-23T16:31:57.017Z"
+    },
+    "ent": {
+      "pin": "11",
+      "clinic": "ent",
+      "active": true,
+      "generatedAt": "2025-10-23T16:31:57.017Z"
+    },
+    "surgery": {
+      "pin": "12",
+      "clinic": "surgery",
+      "active": true,
+      "generatedAt": "2025-10-23T16:31:57.017Z"
+    },
+    "dental": {
+      "pin": "15",
+      "clinic": "dental",
+      "active": true,
+      "generatedAt": "2025-10-23T16:31:57.017Z"
+    },
+    "psychiatry": {
+      "pin": "13",
+      "clinic": "psychiatry",
+      "active": true,
+      "generatedAt": "2025-10-23T16:31:57.017Z"
+    },
+    "derma": {
+      "pin": "05",
+      "clinic": "derma",
+      "active": true,
+      "generatedAt": "2025-10-23T16:31:57.017Z"
+    },
+    "bones": {
+      "pin": "09",
+      "clinic": "bones",
+      "active": true,
+      "generatedAt": "2025-10-23T16:31:57.017Z"
+    }
+  }
+}
+   ❌ فشل (متوقع: ، فعلي: 200)
+
+=== بدء جلسة (MW) ===
+المسار: POST /mw/session/start
+الحالة: 200
+الاستجابة: {"ok":true,"result":{"ok":true}}
+   ✅ نجح (200)
+
+=== تسجيل دخول مريض (API) ===
+المسار: POST /api/v1/patient/login
+الحالة: 200
+الاستجابة: {"success":true,"data":{"id":"1761237117061-mb8yh0vci","patientId":"12345","gender":"male","loginTime":"2025-10-23T16:31:57.061Z","status":"logged_in"},"message":"Login successful"}
+   ✅ نجح (200)
+
+=== حالة الدور (API) ===
+المسار: GET /api/v1/queue/status?clinic=general
+الحالة: 200
+الاستجابة: {
+  "success": true,
+  "clinic": "general",
+  "current": null,
+  "current_display": 0,
+  "total": 0,
+  "waiting": 0,
+  "in_service": 0,
+  "completed": 0
+}
+   ❌ فشل (متوقع: ، فعلي: 200)
+
+=== دخول الدور (API) ===
+المسار: POST /api/v1/queue/enter
+الحالة: 200
+الاستجابة: {
+  "success": true,
+  "clinic": "general",
+  "user": "12345",
+  "number": 1,
+  "status": "WAITING",
+  "display_number": 1,
+  "ahead": 0,
+  "total_waiting": 1,
+  "entry_time": "2025-10-23T16:31:57.102Z"
+}
+   ✅ نجح (200)
+
+=== إشعارات (MW) ===
+المسار: POST /mw/notify/info
+الحالة: 200
+الاستجابة: {"ok":true}
+   ✅ نجح (200)
+
+=== حالة الإشعارات (API) ===
+المسار: GET /api/v1/notify/status
+الحالة: 400
+الاستجابة: {
+  "error": "Missing pin or clinic parameter"
+}
+   ❌ فشل (متوقع: ، فعلي: 400)
+
+=== البث المباشر (MW) ===
+المسار: GET /mw/admin/live
+الحالة: 200
+الاستجابة: {"ok":true,"mode":"SSE-placeholder"}
+   ❌ فشل (متوقع: ، فعلي: 200)
+
+=== حالة الإدارة (API) ===
+المسار: GET /api/v1/admin/status
+الحالة: 200
+الاستجابة: {
+  "success": true,
+  "online": true,
+  "version": "1.0.0",
+  "kv_sync": true,
+  "kv_bindings": {
+    "KV_PINS": true,
+    "KV_QUEUES": true,
+    "KV_ADMIN": true,
+    "KV_EVENTS": true,
+    "KV_LOCKS": true,
+    "KV_CACHE": true
+  },
+  "stats": {
+    "total_waiting": 0,
+    "total_done": 0,
+    "active_clinics": 8
+  },
+  "timestamp": "2025-10-23T16:31:57.170Z"
+}
+   ❌ فشل (متوقع: ، فعلي: 200)
+
+=== إحصائيات Dashboard (API) ===
+المسار: GET /api/v1/stats/dashboard
+الحالة: 200
+الاستجابة: {"success":true,"stats":{"totalWaiting":0,"activeQueues":0,"completedToday":0,"avgWaitTime":0},"timestamp":"2025-10-23T16:31:57.191Z"}
+   ❌ فشل (متوقع: ، فعلي: 200)
+
+=== حالة الصحة (API) ===
+المسار: GET /api/v1/health/status
+الحالة: 200
+الاستجابة: {
+  "pages_fullstack": true,
+  "functions_enabled": true,
+  "kv_bound": [
+    "KV_ADMIN",
+    "KV_PINS",
+    "KV_QUEUES",
+    "KV_EVENTS",
+    "KV_LOCKS",
+    "KV_CACHE"
+  ],
+  "r2_bound": [],
+  "do_bound": [],
+  "env_ok": {
+    "PIN_SECRET": true,
+    "NOTIFY_KEY": true,
+    "JWT_SECRET": true,
+    "TIMEZONE": true,
+    "DB_URL": false
+  },
+  "www_redirect": false,
+  "rate_limit": {
+    "enabled": false,
+    "rpm": 60
+  },
+  "edge_headers": {
+    "server": "cloudflare",
+    "cf-worker": true
+  },
+  "timestamp": "2025-10-23T16:31:57.207Z"
+}
+   ❌ فشل (متوقع: ، فعلي: 200)
+
+=================================================================
+النتيجة النهائية
+=================================================================
+✅ اختبارات ناجحة: 4
+❌ اختبارات فاشلة: 9
+📊 نسبة النجاح: 30%
+
+الحالة: ⚠️ يوجد 9 اختبار فاشل
+الإجراء: راجع ملف الأخطاء وقم بالإصلاح
+
+ملف الأخطاء: live_test_errors.log
+
+=================================================================
+التوقيع: Lead Software Architect
+التاريخ: 2025-10-23
+الحالة: ⚠️ يتطلب إصلاح
+=================================================================

@@ -1,6 +1,6 @@
 {
   "version": 1,
-  "include": ["/api/*", "/admin/*"],
+  "include": ["/api/*", "/admin/*", "/mw/*"],
   "exclude": ["/assets/*", "/img/*", "/js/*", "/*.css", "/*.js", "/*.json", "/*.txt", "/*.ico", "/*.png", "/*.jpg", "/*.jpeg", "/*.svg", "/*.webp"]
 }
 

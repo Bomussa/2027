@@ -48,6 +48,7 @@ export const onRequestPost = async (context) => {
           }
         }
       } catch (e) {
+        isValid = false;
         console.error('KV admin check error:', e);
       }
     }
@@ -97,6 +98,7 @@ export const onRequestPost = async (context) => {
           { expirationTtl: 28800 } // 8 hours
         );
       } catch (e) {
+        isValid = false;
         console.error('Session storage error:', e);
       }
     }

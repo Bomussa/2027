@@ -2,6 +2,8 @@
 // Each clinic has independent queue starting from 1
 
 import { jsonResponse, corsResponse, validateRequiredFields, checkKVAvailability } from '../../../_shared/utils.js';
+import { logActivity } from '../../../_shared/activity-logger.js';
+import { validateQueueEnter } from '../../../_shared/db-validator.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -24,6 +26,17 @@ export async function onRequest(context) {
     const kvError = checkKVAvailability(env.KV_QUEUES, 'KV_QUEUES');
     if (kvError) {
       return jsonResponse(kvError, 500);
+    }
+    
+    // Validate patient can enter this clinic
+    const validation = await validateQueueEnter(env, user, clinic);
+    if (!validation.valid) {
+      return jsonResponse({
+        success: false,
+        error: validation.error,
+        code: validation.code,
+        details: validation
+      }, validation.code === 'PATIENT_NOT_FOUND' ? 404 : 403);
     }
     
     const kv = env.KV_QUEUES;
@@ -92,6 +105,18 @@ export async function onRequest(context) {
     const myPosition = queueList.length;
     const ahead = myPosition - 1;
     const totalWaiting = queueList.length;
+    
+    // Log activity
+    await logActivity(env, 'ENTER', {
+      patientId: user,
+      clinic: clinic,
+      queueNumber: newNumber,
+      details: {
+        position: myPosition,
+        ahead: ahead,
+        total_waiting: totalWaiting
+      }
+    });
     
     return jsonResponse({
       success: true,

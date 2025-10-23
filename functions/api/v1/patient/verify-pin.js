@@ -3,6 +3,8 @@
 // Body: { patientId, clinic, pin, queueNumber }
 
 import { jsonResponse, corsResponse, validateRequiredFields, checkKVAvailability } from '../../../_shared/utils.js';
+import { logActivity } from '../../../_shared/activity-logger.js';
+import { validateVerifyPIN } from '../../../_shared/db-validator.js';
 
 export async function onRequest(context) {
   const { request, env } = context;
@@ -35,78 +37,30 @@ export async function onRequest(context) {
     if (kvEventsError) return jsonResponse(kvEventsError, 500);
     
     // ============================================================
-    // STEP 1: Verify PIN
+    // STEP 1: Complete Validation (Database Check)
+    // ============================================================
+    const validation = await validateVerifyPIN(env, patientId, clinic, pin, queueNumber);
+    
+    if (!validation.valid) {
+      return jsonResponse({
+        success: false,
+        error: validation.error,
+        code: validation.code,
+        details: validation
+      }, validation.code === 'PATIENT_NOT_FOUND' ? 404 : 403);
+    }
+    
+    const userEntry = validation.entry;
+    const patientPath = validation.path;
+    
+    // ============================================================
+    // STEP 2: Get timing data
     // ============================================================
     const today = new Date().toISOString().split('T')[0];
     const pinsKey = `pins:daily:${today}`;
     const dailyPins = await env.KV_PINS.get(pinsKey, 'json');
     
-    if (!dailyPins) {
-      return jsonResponse({ 
-        success: false, 
-        error: 'لم يتم العثور على أرقام PIN اليومية',
-        message: 'Daily PINs not found'
-      }, 404);
-    }
-    
-    const clinicPinData = dailyPins[clinic];
-    if (!clinicPinData) {
-      return jsonResponse({ 
-        success: false, 
-        error: 'لم يتم العثور على PIN لهذه العيادة',
-        message: 'PIN not found for this clinic'
-      }, 404);
-    }
-    
-    const correctPin = typeof clinicPinData === 'object' ? clinicPinData.pin : clinicPinData;
-    const normalizedInputPin = String(pin).trim();
-    const normalizedCorrectPin = String(correctPin).trim();
-    
-    if (normalizedInputPin !== normalizedCorrectPin) {
-      return jsonResponse({ 
-        success: false, 
-        error: 'رقم PIN غير صحيح',
-        message: 'Incorrect PIN'
-      }, 403);
-    }
-    
-    // Verify PIN doesn't belong to another clinic
-    for (const [otherClinic, otherPinData] of Object.entries(dailyPins)) {
-      if (otherClinic !== clinic) {
-        const otherPin = typeof otherPinData === 'object' ? otherPinData.pin : otherPinData;
-        if (String(otherPin).trim() === normalizedInputPin) {
-          return jsonResponse({ 
-            success: false, 
-            error: `رقم PIN هذا يخص عيادة ${otherClinic} وليس ${clinic}`,
-            message: `This PIN belongs to ${otherClinic}, not ${clinic}`
-          }, 403);
-        }
-      }
-    }
-    
-    // ============================================================
-    // STEP 2: Verify queue number
-    // ============================================================
-    const userKey = `queue:user:${clinic}:${patientId}`;
-    const userEntry = await env.KV_QUEUES.get(userKey, 'json');
-    
-    if (!userEntry) {
-      return jsonResponse({ 
-        success: false, 
-        error: 'لم يتم العثور على المراجع في الطابور',
-        message: 'Patient not found in queue'
-      }, 404);
-    }
-    
-    if (userEntry.number !== parseInt(queueNumber)) {
-      return jsonResponse({ 
-        success: false, 
-        error: 'رقم الطابور غير صحيح',
-        message: 'Incorrect queue number',
-        expected: userEntry.number,
-        provided: parseInt(queueNumber)
-      }, 403);
-    }
+    // All validations passed - proceed with operation
     
     // ============================================================
     // STEP 3: Mark clinic as DONE
@@ -135,6 +89,15 @@ export async function onRequest(context) {
       expirationTtl: 86400
     });
     
+    // Log EXIT activity
+    await logActivity(env, 'EXIT', {
+      patientId: patientId,
+      clinic: clinic,
+      queueNumber: parseInt(queueNumber),
+      duration: durationMinutes,
+      pinVerified: true
+    });
+    
     // ============================================================
     // STEP 4: Update statistics
     // ============================================================
@@ -158,18 +121,9 @@ export async function onRequest(context) {
     });
     
     // ============================================================
-    // STEP 5: Get patient path and find next clinic
+    // STEP 5: Use validated patient path
     // ============================================================
-    const pathKey = `path:${patientId}`;
-    let patientPath = await env.KV_ADMIN.get(pathKey, 'json');
-    
-    if (!patientPath || !patientPath.route) {
-      return jsonResponse({ 
-        success: false, 
-        error: 'لم يتم العثور على مسار المراجع',
-        message: 'Patient path not found'
-      }, 404);
-    }
+    // patientPath already validated and loaded
     
     // Find current clinic index in route
     const currentIndex = patientPath.route.indexOf(clinic);
@@ -306,6 +260,7 @@ export async function onRequest(context) {
     patientPath.current_index = currentIndex + 1;
     patientPath.last_updated = exitTime;
     
+    const pathKey = `path:${patientId}`;
     await env.KV_ADMIN.put(pathKey, JSON.stringify(patientPath), {
       expirationTtl: 86400
     });

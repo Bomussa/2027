@@ -543,7 +543,7 @@ class ApiService {
   }
 
   async getDashboardStats() {
-    return this.getAdminStatus()
+    return this.request(`${API_VERSION}/stats/dashboard`)
   }
 
   async getClinicOccupancy() {

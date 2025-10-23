@@ -320,30 +320,9 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
           // إعادة المحاولة بعد تأخير
           setTimeout(updateQueueStatus, RECOVERY_DELAY);
         } else {
-          console.error('🔁 إعادة تهيئة النظام...');
-          
-          // تسجيل حالة الإصلاح الذاتي
-          try {
-            await fetch('/api/v1/events/recovery', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                source: 'queue-watcher',
-                retries: retryCount,
-                timestamp: new Date().toISOString()
-              })
-            });
-          } catch (logErr) {
-            console.warn('Failed to log recovery event:', logErr);
-          }
-          
-          // إصلاح ذاتي نهائي مع تفريغ الكاش
-          if ('caches' in window) {
-            caches.keys().then(names => {
-              names.forEach(name => caches.delete(name));
-            });
-          }
-          window.location.reload(true);
+          console.error('⚠️ فشل التحديث بعد 3 محاولات - الاعتماد على SSE');
+          // إعادة تعيين العداد والانتظار على SSE
+          retryCount = 0;
         }
       }
     };
@@ -354,18 +333,13 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     // Adaptive Polling: يعمل فقط إذا SSE غير نشط
     // سيتم تفعيله/إيقافه تلقائياً حسب حالة SSE
     
-    // Heartbeat لمراقبة الصفحة
+    // Heartbeat لمراقبة الصفحة (تحذير فقط، بدون إعادة تحميل)
     const heartbeatInterval = setInterval(() => {
       const now = Date.now();
-      if (now - lastResponseTime > 60000) {
-        console.warn('🩺 الصفحة لم تستجب منذ دقيقة — إعادة تهيئة...');
-        // تفريغ الكاش قبل إعادة التحميل
-        if ('caches' in window) {
-          caches.keys().then(names => {
-            names.forEach(name => caches.delete(name));
-          });
-        }
-        window.location.reload(true);
+      if (now - lastResponseTime > 120000) { // دقيقتان بدلاً من دقيقة
+        console.warn('⚠️ لا توجد استجابة منذ دقيقتين - الاعتماد على SSE');
+        // إعادة تعيين الوقت لتجنب التحذيرات المتكررة
+        lastResponseTime = Date.now();
       }
     }, 60000);
     

@@ -53,25 +53,9 @@ export default function useQueueWatcher({
           // إعادة المحاولة بعد تأخير
           setTimeout(safeFetch, RECOVERY_DELAY);
         } else {
-          console.error('🔁 إعادة تهيئة النظام...');
-          
-          // تسجيل حالة الإصلاح الذاتي
-          try {
-            await fetch('/api/v1/events/recovery', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                source: 'queue-watcher',
-                retries: retryCountRef.current,
-                timestamp: new Date().toISOString()
-              })
-            });
-          } catch (logErr) {
-            console.warn('Failed to log recovery event:', logErr);
-          }
-          
-          // إصلاح ذاتي نهائي
-          window.location.reload();
+          console.error('⚠️ فشل التحديث بعد 3 محاولات - الاعتماد على SSE');
+          // إعادة تعيين العداد والانتظار على SSE
+          retryCountRef.current = 0;
         }
       }
     };

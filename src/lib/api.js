@@ -539,7 +539,7 @@ class ApiService {
   }
 
   async getActiveQueue() {
-    return this.getQueues()
+    return this.request(`${API_VERSION}/stats/queues`)
   }
 
   async getDashboardStats() {
@@ -547,7 +547,7 @@ class ApiService {
   }
 
   async getClinicOccupancy() {
-    return this.getQueues()
+    return this.request(`${API_VERSION}/stats/queues`)
   }
 
   async getWaitTimes() {

@@ -38,7 +38,7 @@ export const onRequestPost = async (context) => {
         const storedCreds = await env.KV_ADMIN.get('admin:credentials');
         if (storedCreds) {
           const creds = JSON.parse(storedCreds);
-          if (creds.username === username && creds.password === password) {
+          if (creds.username === username && creds.password && creds.password === password) {
             isValid = true;
             adminData = {
               username: username,

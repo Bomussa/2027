@@ -111,9 +111,29 @@ function App() {
     try {
       // First login the patient
       const loginResponse = await api.patientLogin(patientId, gender)
+      
+      console.log('Login response:', loginResponse) // للتشخيص
+      
       if (loginResponse.success) {
-        setPatientData(loginResponse.data)
+        // تحويل الـ Response لتتناسب مع البنية المتوقعة
+        // Backend يرجع البيانات مباشرة بدون data wrapper
+        const sessionData = {
+          id: loginResponse.patientId || patientId, // استخدام patientId كـ id
+          patientId: loginResponse.patientId || patientId,
+          gender: loginResponse.gender || gender,
+          examType: loginResponse.examType || 'recruitment',
+          route: loginResponse.route || [],
+          first_clinic: loginResponse.first_clinic,
+          queue_number: loginResponse.queue_number,
+          waiting_count: loginResponse.waiting_count,
+          total_clinics: loginResponse.total_clinics,
+          loginTime: new Date().toISOString(),
+          status: 'logged_in'
+        }
+        
+        setPatientData(sessionData)
         setCurrentView("examSelection")
+        
         showNotification(
           language === 'ar' ? 'تم تسجيل الدخول بنجاح' : 'Login successful',
           'success'
@@ -122,6 +142,7 @@ function App() {
         throw new Error(loginResponse.error || 'Login failed')
       }
     } catch (error) {
+      console.error('Login error:', error) // للتشخيص
       // Login failed - show notification
       showNotification(
         language === 'ar' ? 'فشل تسجيل الدخول' : 'Login failed',
@@ -132,31 +153,49 @@ function App() {
 
   const handleExamSelection = async (examType) => {
     try {
+      console.log('Exam selection:', examType, 'Patient data:', patientData) // للتشخيص
+      
+      // التحقق من وجود patientData
+      if (!patientData || !patientData.id) {
+        throw new Error('Patient data is missing')
+      }
+      
       // Get first clinic from medical pathway based on exam type and gender
       const pathway = medicalPathways[examType]?.[patientData.gender] || []
-      if (pathway.length === 0) {
+      
+      // إذا كان المريض لديه route من Backend، استخدمه
+      const clinicRoute = patientData.route && patientData.route.length > 0 
+        ? patientData.route 
+        : pathway.map(c => c.id)
+      
+      if (clinicRoute.length === 0) {
         throw new Error('No clinics found for this exam type')
       }
       
-      const firstClinic = pathway[0].id
+      const firstClinic = clinicRoute[0]
+      
+      console.log('First clinic:', firstClinic, 'Route:', clinicRoute) // للتشخيص
       
       // Enter queue for the first clinic
       const queueData = await api.enterQueue(firstClinic, patientData.id, false)
       
-      if (!queueData.success) {
-        throw new Error(queueData.error || 'Failed to enter queue')
+      if (!queueData || !queueData.success) {
+        throw new Error(queueData?.error || 'Failed to enter queue')
       }
       
       // Update patient data with queue information
-      setPatientData({
+      const updatedPatientData = {
         ...patientData,
         queueType: examType,
         currentClinic: firstClinic,
         queueNumber: queueData.display_number || queueData.number,
         ahead: queueData.ahead || 0,
-        pathway: pathway
-      })
+        pathway: pathway.length > 0 ? pathway : clinicRoute.map(id => ({ id }))
+      }
       
+      console.log('Updated patient data:', updatedPatientData) // للتشخيص
+      
+      setPatientData(updatedPatientData)
       setCurrentView('patient')
       
       showNotification(

@@ -158,13 +158,35 @@ class ApiService {
    * تسجيل دخول المريض
    * Backend: POST /api/v1/patient/login
    * Body: { patientId, gender }
-   * Response: { success, data }
+   * Response: { success, patientId, gender, examType, route, ... }
    */
   async patientLogin(patientId, gender) {
-    return this.request(`${API_VERSION}/patient/login`, {
-      method: 'POST',
-      body: JSON.stringify({ patientId, gender })
-    })
+    try {
+      const response = await this.request(`${API_VERSION}/patient/login`, {
+        method: 'POST',
+        body: JSON.stringify({ patientId, gender })
+      })
+      
+      // التحقق من صحة الـ Response
+      if (!response) {
+        throw new Error('Empty response from server')
+      }
+      
+      if (!response.success) {
+        throw new Error(response.error || 'Login failed')
+      }
+      
+      // التحقق من وجود البيانات الأساسية
+      if (!response.patientId || !response.gender) {
+        throw new Error('Invalid response structure')
+      }
+      
+      return response
+      
+    } catch (error) {
+      console.error('Patient login error:', error)
+      throw error
+    }
   }
 
   /**

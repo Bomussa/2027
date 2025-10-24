@@ -172,7 +172,9 @@ function App() {
         throw new Error('No clinics found for this exam type')
       }
       
-      const firstClinic = clinicRoute[0]
+      // استخدام first_clinic من Backend بدلاً من route[0]
+      // Backend يحدد العيادة الأولى بناءً على clinic loads
+      const firstClinic = patientData.first_clinic || clinicRoute[0]
       
       console.log('First clinic:', firstClinic, 'Route:', clinicRoute) // للتشخيص
       

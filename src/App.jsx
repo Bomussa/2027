@@ -178,11 +178,25 @@ function App() {
       
       console.log('Target clinic:', targetClinic, 'Route:', clinicRoute) // للتشخيص
       
-      // Enter queue for the target clinic
-      const queueData = await api.enterQueue(targetClinic, patientData.id, false)
+      // إذا كان المريض لديه queue_number من Backend (تم auto-enter)، لا حاجة للدخول مرة أخرى
+      let queueData;
       
-      if (!queueData || !queueData.success) {
-        throw new Error(queueData?.error || 'Failed to enter queue')
+      if (patientData.queue_number) {
+        // المريض موجود بالفعل في الـ queue (من auto-enter)
+        console.log('Patient already in queue with number:', patientData.queue_number)
+        queueData = {
+          success: true,
+          number: patientData.queue_number,
+          display_number: patientData.queue_number,
+          ahead: patientData.waiting_count || 0
+        }
+      } else {
+        // دخول العيادة لأول مرة
+        queueData = await api.enterQueue(targetClinic, patientData.id, false)
+        
+        if (!queueData || !queueData.success) {
+          throw new Error(queueData?.error || 'Failed to enter queue')
+        }
       }
       
       // Update patient data with queue information

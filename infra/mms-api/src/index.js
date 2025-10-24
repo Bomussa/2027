@@ -198,10 +198,25 @@ async function handlePatientLogin(request, env) {
 
     // Create session
     const sessionId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    
+    // Calculate route based on gender
+    let route = [];
+    if (gender === 'male') {
+      route = ['lab', 'xray', 'vitals', 'ecg', 'audio', 'eyes', 'internal', 'ent', 'surgery', 'dental', 'psychiatry', 'derma', 'bones'];
+    } else {
+      route = ['lab', 'xray', 'vitals', 'ecg', 'audio', 'eyes', 'internal', 'ent', 'dental', 'psychiatry', 'derma'];
+    }
+    
     const patientData = {
       id: sessionId,
       patientId: patientId,
       gender: gender,
+      examType: 'recruitment', // Default exam type
+      route: route,
+      first_clinic: route[0], // First clinic in route
+      queue_number: null,
+      waiting_count: 0,
+      total_clinics: route.length,
       loginTime: new Date().toISOString(),
       status: 'logged_in'
     };
@@ -213,9 +228,17 @@ async function handlePatientLogin(request, env) {
       { expirationTtl: 86400 }
     );
 
+    // Return data directly without wrapper (to match Frontend expectations)
     return jsonResponse({
       success: true,
-      data: patientData,
+      patientId: patientData.patientId,
+      gender: patientData.gender,
+      examType: patientData.examType,
+      route: patientData.route,
+      first_clinic: patientData.first_clinic,
+      queue_number: patientData.queue_number,
+      waiting_count: patientData.waiting_count,
+      total_clinics: patientData.total_clinics,
       message: 'Login successful'
     });
 

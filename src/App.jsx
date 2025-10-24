@@ -172,14 +172,14 @@ function App() {
         throw new Error('No clinics found for this exam type')
       }
       
-      // استخدام first_clinic من Backend بدلاً من route[0]
-      // Backend يحدد العيادة الأولى بناءً على clinic loads
-      const firstClinic = patientData.first_clinic || clinicRoute[0]
+      // استخدام current_clinic من Backend (للمرضى الموجودين) أو first_clinic (للمرضى الجدد)
+      // Backend يحدد العيادة الحالية بناءً على clinic loads و patient progress
+      const targetClinic = patientData.current_clinic || patientData.first_clinic || clinicRoute[0]
       
-      console.log('First clinic:', firstClinic, 'Route:', clinicRoute) // للتشخيص
+      console.log('Target clinic:', targetClinic, 'Route:', clinicRoute) // للتشخيص
       
-      // Enter queue for the first clinic
-      const queueData = await api.enterQueue(firstClinic, patientData.id, false)
+      // Enter queue for the target clinic
+      const queueData = await api.enterQueue(targetClinic, patientData.id, false)
       
       if (!queueData || !queueData.success) {
         throw new Error(queueData?.error || 'Failed to enter queue')
@@ -189,7 +189,7 @@ function App() {
       const updatedPatientData = {
         ...patientData,
         queueType: examType,
-        currentClinic: firstClinic,
+        currentClinic: targetClinic,
         queueNumber: queueData.display_number || queueData.number,
         ahead: queueData.ahead || 0,
         pathway: pathway.length > 0 ? pathway : clinicRoute.map(id => ({ id }))

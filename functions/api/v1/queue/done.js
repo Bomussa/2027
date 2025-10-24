@@ -79,23 +79,6 @@ export async function onRequest(context) {
       }, 403);
     }
     
-    // Additional security check: verify PIN belongs to this clinic only
-    // Check if the entered PIN belongs to any other clinic
-    for (const [otherClinic, otherPinData] of Object.entries(dailyPins)) {
-      if (otherClinic !== clinic) {
-        const otherPin = typeof otherPinData === 'object' ? otherPinData.pin : otherPinData;
-        if (String(otherPin).trim() === normalizedInputPin) {
-          return jsonResponse({ 
-            success: false, 
-            error: `رقم PIN هذا يخص عيادة ${otherClinic} وليس ${clinic}`,
-            message: `This PIN belongs to ${otherClinic} clinic, not ${clinic}`,
-            correctClinic: otherClinic,
-            requestedClinic: clinic
-          }, 403);
-        }
-      }
-    }
-    
     // Get user entry
     const userKey = `queue:user:${clinic}:${user}`;
     const userEntry = await kv.get(userKey, 'json');
@@ -153,4 +136,3 @@ export async function onRequest(context) {
 export async function onRequestOptions() {
   return corsResponse(['POST', 'OPTIONS']);
 }
-

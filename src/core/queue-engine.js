@@ -1,200 +1,203 @@
-// محرك الطوابير (Queue Engine) - النظام الرسمي
+// Queue Engine - يستعلم من الباك اند بدلاً من التخزين المحلي
 import eventBus from './event-bus.js'
 import notificationEngine from './notification-engine.js'
-import settings from '../../data/settings.json'
+
+const API_BASE = '/api/v1'
 
 class QueueEngine {
   constructor() {
-    this.queues = new Map() // clinicId -> { current, waiting: [], history: [] }
-    this.lastReset = null
+    this.updateInterval = null
     this.init()
   }
 
   init() {
-    this.checkDailyReset()
-    setInterval(() => this.checkDailyReset(), 60000)
+    // تحديث كل 15 ثانية
+    this.updateInterval = setInterval(() => {
+      this.refreshAllQueues()
+    }, 15000)
   }
 
-  checkDailyReset() {
-    const now = new Date()
-    const qatarTime = new Date(now.toLocaleString('en-US', { timeZone: settings.REGION }))
-    const resetTime = settings.PIN_RESET_TIME.split(':')
-    const resetHour = parseInt(resetTime[0])
-    const resetMinute = parseInt(resetTime[1])
-
-    const lastResetDate = this.lastReset ? new Date(this.lastReset) : null
-    const todayReset = new Date(qatarTime)
-    todayReset.setHours(resetHour, resetMinute, 0, 0)
-
-    if (qatarTime >= todayReset && (!lastResetDate || lastResetDate < todayReset)) {
-      this.resetAll()
-      this.lastReset = qatarTime.toISOString()
+  /**
+   * تحديث جميع الطوابير من قاعدة البيانات
+   */
+  async refreshAllQueues() {
+    try {
+      const response = await fetch(`${API_BASE}/admin/clinic-stats`)
+      if (response.ok) {
+        const data = await response.json()
+        
+        // إرسال تحديثات لكل عيادة
+        if (data.clinics) {
+          data.clinics.forEach(clinic => {
+            eventBus.emit('queue:update', {
+              clinicId: clinic.id,
+              waiting: clinic.waiting_count,
+              entered: clinic.entered_count,
+              exited: clinic.exited_count
+            })
+          })
+        }
+      }
+    } catch (error) {
+      console.error('[Queue Engine] Failed to refresh queues:', error)
     }
   }
 
-  resetAll() {
-    this.queues.clear()
-    console.log(`[Queue Engine] Reset completed at ${new Date().toISOString()}`)
-  }
-
-  getOrCreateQueue(clinicId) {
-    if (!this.queues.has(clinicId)) {
-      this.queues.set(clinicId, {
-        current: 0,
-        waiting: [],
-        history: [],
-        lastCalled: null
-      })
-    }
-    return this.queues.get(clinicId)
-  }
-
+  /**
+   * إضافة مراجع إلى الطابور (عبر API)
+   */
   async addToQueue(clinicId, patientId) {
-    this.checkDailyReset()
-    const queue = this.getOrCreateQueue(clinicId)
-    
-    // التحقق من عدم التكرار
-    if (queue.waiting.some(p => p.patientId === patientId)) {
-      return queue.waiting.find(p => p.patientId === patientId)
-    }
-
-    const number = queue.current + queue.waiting.length + 1
-    const entry = {
-      patientId,
-      number,
-      clinicId,
-      joinedAt: new Date().toISOString(),
-      status: 'waiting'
-    }
-
-    queue.waiting.push(entry)
-    
-    // إرسال إشعار تحديث الطابور
-    const position = queue.waiting.length
-    eventBus.emit('queue:update', {
-      patientId,
-      clinicId,
-      position,
-      totalWaiting: queue.waiting.length
-    })
-    
-    return entry
-  }
-
-  async callNext(clinicId) {
-    const queue = this.getOrCreateQueue(clinicId)
-    
-    if (queue.waiting.length === 0) {
-      return null
-    }
-
-    const next = queue.waiting.shift()
-    next.status = 'called'
-    next.calledAt = new Date().toISOString()
-    
-    queue.current = next.number
-    queue.lastCalled = next
-    queue.history.push(next)
-    
-    // إرسال إشعار "حان دورك"
-    eventBus.emit('queue:your_turn', {
-      patientId: next.patientId,
-      clinicId,
-      clinicName: clinicId, // سيتم تحسينه لاحقاً
-      number: next.number
-    })
-    
-    // تحديث موقع باقي المنتظرين
-    queue.waiting.forEach((entry, index) => {
-      const position = index + 1
-      eventBus.emit('queue:update', {
-        patientId: entry.patientId,
-        clinicId,
-        position,
-        totalWaiting: queue.waiting.length
+    try {
+      const response = await fetch(`${API_BASE}/queue/enter`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clinicId, patientId })
       })
       
-      // إشعار "اقترب دورك" للمراكز 1-3
-      if (position <= 3) {
-        eventBus.emit('queue:near_turn', {
-          patientId: entry.patientId,
-          clinicId,
-          clinicName: clinicId,
-          position
+      if (!response.ok) {
+        throw new Error('Failed to enter queue')
+      }
+      
+      const data = await response.json()
+      
+      // إرسال إشعار
+      eventBus.emit('queue:joined', {
+        patientId,
+        clinicId,
+        number: data.queue_number,
+        waiting: data.waiting_count
+      })
+      
+      return data
+    } catch (error) {
+      console.error('[Queue Engine] Failed to add to queue:', error)
+      throw error
+    }
+  }
+
+  /**
+   * استدعاء التالي (عبر API)
+   */
+  async callNext(clinicId) {
+    try {
+      const response = await fetch(`${API_BASE}/queue/call`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clinicId })
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to call next')
+      }
+      
+      const data = await response.json()
+      
+      // إرسال إشعار
+      if (data.patient) {
+        eventBus.emit('queue:your_turn', {
+          patientId: data.patient.patientId,
+          clinicId: clinicId,
+          number: data.patient.number
+        })
+        
+        notificationEngine.send({
+          type: 'YOUR_TURN',
+          patientId: data.patient.patientId,
+          title: 'حان دورك!',
+          message: `توجه إلى ${clinicId} الآن`,
+          priority: 'high'
         })
       }
-    })
-
-    return next
-  }
-
-  async pauseQueue(clinicId) {
-    const queue = this.getOrCreateQueue(clinicId)
-    queue.paused = true
-    queue.pausedAt = new Date().toISOString()
-    return queue
-  }
-
-  async resumeQueue(clinicId) {
-    const queue = this.getOrCreateQueue(clinicId)
-    queue.paused = false
-    queue.resumedAt = new Date().toISOString()
-    return queue
-  }
-
-  getQueueStatus(clinicId) {
-    const queue = this.getOrCreateQueue(clinicId)
-    return {
-      clinicId,
-      current: queue.current,
-      waiting: queue.waiting.length,
-      paused: queue.paused || false,
-      lastCalled: queue.lastCalled,
-      avgWaitTime: this.calculateAvgWaitTime(queue)
+      
+      return data
+    } catch (error) {
+      console.error('[Queue Engine] Failed to call next:', error)
+      throw error
     }
   }
 
-  calculateAvgWaitTime(queue) {
-    if (queue.history.length === 0) return 0
+  /**
+   * الحصول على موقع المراجع (عبر API)
+   */
+  async getMyPosition(patientId, clinicId) {
+    try {
+      const response = await fetch(
+        `${API_BASE}/patient/my-position?patientId=${patientId}&clinic=${clinicId}`
+      )
+      
+      if (!response.ok) {
+        throw new Error('Failed to get position')
+      }
+      
+      const data = await response.json()
+      return data
+    } catch (error) {
+      console.error('[Queue Engine] Failed to get position:', error)
+      throw error
+    }
+  }
 
-    const times = queue.history
-      .filter(h => h.calledAt && h.joinedAt)
-      .map(h => {
-        const joined = new Date(h.joinedAt)
-        const called = new Date(h.calledAt)
-        return (called - joined) / 1000 / 60 // minutes
+  /**
+   * إنهاء الخدمة (عبر API)
+   */
+  async markDone(clinicId, patientId) {
+    try {
+      const response = await fetch(`${API_BASE}/queue/done`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ clinicId, patientId })
       })
-
-    if (times.length === 0) return 0
-    return Math.round(times.reduce((a, b) => a + b, 0) / times.length)
-  }
-
-  getPatientPosition(clinicId, patientId) {
-    const queue = this.getOrCreateQueue(clinicId)
-    const index = queue.waiting.findIndex(p => p.patientId === patientId)
-    
-    if (index === -1) return null
-
-    return {
-      position: index + 1,
-      current: queue.current,
-      ahead: index,
-      estimatedWait: index * settings.QUEUE_INTERVAL_SECONDS / 60
+      
+      if (!response.ok) {
+        throw new Error('Failed to mark done')
+      }
+      
+      const data = await response.json()
+      
+      // إرسال إشعار
+      eventBus.emit('queue:completed', {
+        patientId,
+        clinicId,
+        duration: data.duration
+      })
+      
+      return data
+    } catch (error) {
+      console.error('[Queue Engine] Failed to mark done:', error)
+      throw error
     }
   }
 
-  getAllQueues() {
-    const result = []
-    for (const [clinicId, queue] of this.queues.entries()) {
-      result.push(this.getQueueStatus(clinicId))
+  /**
+   * الحصول على حالة العيادة (عبر API)
+   */
+  async getClinicStatus(clinicId) {
+    try {
+      const response = await fetch(`${API_BASE}/queue/status?clinic=${clinicId}`)
+      
+      if (!response.ok) {
+        throw new Error('Failed to get clinic status')
+      }
+      
+      const data = await response.json()
+      return data
+    } catch (error) {
+      console.error('[Queue Engine] Failed to get clinic status:', error)
+      throw error
     }
-    return result
+  }
+
+  /**
+   * تنظيف
+   */
+  destroy() {
+    if (this.updateInterval) {
+      clearInterval(this.updateInterval)
+    }
   }
 }
 
-// Singleton instance
+// Singleton
 const queueEngine = new QueueEngine()
-
 export default queueEngine
-export { QueueEngine }
 

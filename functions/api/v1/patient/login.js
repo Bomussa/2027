@@ -101,6 +101,7 @@ export async function onRequest(context) {
         gender: gender,
         examType: existingPath.examType || examType,
         route: existingPath.route,
+        first_clinic: existingPath.current_clinic, // إضافة first_clinic للتوافق مع Frontend
         current_clinic: existingPath.current_clinic,
         current_index: existingPath.current_index,
         status: existingPath.status,

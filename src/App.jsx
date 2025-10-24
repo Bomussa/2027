@@ -175,6 +175,13 @@ function App() {
   const handleAdminLogin = async (credentials) => {
     // credentials format: "username:password"
     const [username, password] = credentials.split(':')
+    
+    // التحقق من بيانات الدخول الجديدة (admin/BOMUSSA14490)
+    if (username === 'admin' && password === 'BOMUSSA14490') {
+      setIsAdmin(true)
+      setCurrentView('admin')
+      return
+    }
 
     try {
       const formData = new URLSearchParams()

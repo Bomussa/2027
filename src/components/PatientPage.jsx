@@ -131,13 +131,13 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
         
         // إذا لم يوجد مسار محفوظ، احسب مسار جديد
         if (!examStations) {
-          examStations = await getDynamicMedicalPathway(patientData.queueType, patientData.gender)
+          examStations = await getDynamicMedicalPathway(patientData.examType || patientData.queueType, patientData.gender)
           
           // حفظ المسار الجديد في Backend
           try {
             await api.createRoute(
               patientData.id,
-              patientData.queueType,
+              patientData.examType || patientData.queueType,
               patientData.gender,
               examStations
             )
@@ -180,7 +180,7 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     }
     
     loadPathway()
-  }, [patientData.queueType, patientData.gender])
+  }, [patientData.examType, patientData.queueType, patientData.gender])
 
   // Fetch route with ZFD validation
   useEffect(() => {

@@ -1,6 +1,6 @@
 /**
  * CRON Handler - Notify Poller (every minute)
- * Triggered by: */1 * * * * (every 1 minute)
+ * Triggered by: every 1 minute (CRON format: star-slash-1 star star star star)
  * 
  * Tasks:
  * - Check for patients near their turn

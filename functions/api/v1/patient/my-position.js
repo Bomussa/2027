@@ -1,4 +1,4 @@
-// Patient My Position - Get dynamic position in queue
+// Patient My Position - Get waiting count from database
 // GET /api/v1/patient/my-position?patientId=12345678&clinic=lab
 
 import { jsonResponse } from '../../../_shared/utils.js';
@@ -22,14 +22,11 @@ export async function onRequest(context) {
       }, 400);
     }
     
-    // Get queue list for this clinic
-    const listKey = `queue:list:${clinic}`;
-    const queueList = await env.KV_QUEUES.get(listKey, 'json') || [];
+    // Get user entry
+    const userKey = `queue:user:${clinic}:${patientId}`;
+    const userEntry = await env.KV_QUEUES.get(userKey, 'json');
     
-    // Find patient in queue
-    const patientIndex = queueList.findIndex(item => item.user === patientId);
-    
-    if (patientIndex === -1) {
+    if (!userEntry) {
       return jsonResponse({
         success: false,
         error: 'لست في طابور هذه العيادة',
@@ -37,36 +34,46 @@ export async function onRequest(context) {
       }, 404);
     }
     
-    const patientEntry = queueList[patientIndex];
+    if (userEntry.status === 'DONE') {
+      return jsonResponse({
+        success: false,
+        error: 'لقد أنهيت هذه العيادة بالفعل',
+        message: 'Already completed this clinic'
+      }, 400);
+    }
     
-    // DYNAMIC CALCULATION:
-    // Display position = how many people are waiting before me + 1
-    const displayPosition = patientIndex + 1;
-    const aheadOfMe = patientIndex;
-    const totalWaiting = queueList.length;
+    // Get clinic counters
+    const counterKey = `counter:${clinic}`;
+    const counters = await env.KV_QUEUES.get(counterKey, 'json') || {
+      clinic: clinic,
+      entered: 0,
+      exited: 0
+    };
     
-    // Get patient's permanent number (stored in database)
-    const permanentNumber = patientEntry.number;
+    // Calculate waiting count from database
+    const waitingCount = counters.entered - counters.exited;
     
     return jsonResponse({
       success: true,
       clinic: clinic,
       patientId: patientId,
       
-      // What patient sees on screen (DYNAMIC)
-      display: {
-        position: displayPosition,
-        message: `رقمك الحالي: ${displayPosition}`,
-        ahead: aheadOfMe,
-        total_waiting: totalWaiting
+      // Sequential number (never changes)
+      your_number: userEntry.number,
+      
+      // Waiting count from database (dynamic)
+      waiting_count: waitingCount,
+      
+      // Database counters
+      counters: {
+        entered: counters.entered,
+        exited: counters.exited,
+        waiting: waitingCount
       },
       
-      // What's stored in database (PERMANENT)
-      database: {
-        permanent_number: permanentNumber,
-        status: patientEntry.status,
-        entered_at: patientEntry.entered_at
-      },
+      // Entry info
+      entered_at: userEntry.entered_at,
+      status: userEntry.status,
       
       timestamp: new Date().toISOString()
     });

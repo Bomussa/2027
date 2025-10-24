@@ -1,6 +1,7 @@
-// Patient Verify PIN - Complete clinic and move to next
+// Patient Verify PIN V2 - Counter-based exit
 // POST /api/v1/patient/verify-pin
 // Body: { patientId, clinic, pin, queueNumber }
+// Increments exited counter
 
 import { jsonResponse, corsResponse, validateRequiredFields, checkKVAvailability } from '../../../_shared/utils.js';
 import { logActivity } from '../../../_shared/activity-logger.js';
@@ -17,13 +18,11 @@ export async function onRequest(context) {
     const body = await request.json();
     const { patientId, clinic, pin, queueNumber } = body;
     
-    // Validate required fields
     const validationError = validateRequiredFields(body, ['patientId', 'clinic', 'pin', 'queueNumber']);
     if (validationError) {
       return jsonResponse(validationError, 400);
     }
     
-    // Check all KV availability
     const kvQueuesError = checkKVAvailability(env.KV_QUEUES, 'KV_QUEUES');
     if (kvQueuesError) return jsonResponse(kvQueuesError, 500);
     
@@ -36,9 +35,7 @@ export async function onRequest(context) {
     const kvEventsError = checkKVAvailability(env.KV_EVENTS, 'KV_EVENTS');
     if (kvEventsError) return jsonResponse(kvEventsError, 500);
     
-    // ============================================================
-    // STEP 1: Complete Validation (Database Check)
-    // ============================================================
+    // Complete validation
     const validation = await validateVerifyPIN(env, patientId, clinic, pin, queueNumber);
     
     if (!validation.valid) {
@@ -53,39 +50,42 @@ export async function onRequest(context) {
     const userEntry = validation.entry;
     const patientPath = validation.path;
     
-    // ============================================================
-    // STEP 2: Get timing data
-    // ============================================================
-    const today = new Date().toISOString().split('T')[0];
-    const pinsKey = `pins:daily:${today}`;
-    const dailyPins = await env.KV_PINS.get(pinsKey, 'json');
-    
-    // All validations passed - proceed with operation
-    
-    // ============================================================
-    // STEP 3: Mark clinic as DONE
-    // ============================================================
     const now = new Date();
     const exitTime = now.toISOString();
     const entryTime = new Date(userEntry.entry_time || userEntry.entered_at);
     const durationMs = now - entryTime;
     const durationMinutes = Math.round(durationMs / 60000);
     
+    // ============================================================
+    // INCREMENT EXITED COUNTER
+    // ============================================================
+    const counterKey = `counter:${clinic}`;
+    let counters = await env.KV_QUEUES.get(counterKey, 'json') || {
+      clinic: clinic,
+      entered: 0,
+      exited: 0
+    };
+    
+    counters.exited += 1;
+    
+    await env.KV_QUEUES.put(counterKey, JSON.stringify(counters), {
+      expirationTtl: 86400
+    });
+    
+    // Calculate waiting
+    const waiting = counters.entered - counters.exited;
+    
+    // ============================================================
+    // MARK USER AS DONE
+    // ============================================================
     userEntry.status = 'DONE';
     userEntry.exit_time = exitTime;
     userEntry.duration_minutes = durationMinutes;
     userEntry.pin_verified = true;
     userEntry.pin_verified_at = exitTime;
     
+    const userKey = `queue:user:${clinic}:${patientId}`;
     await env.KV_QUEUES.put(userKey, JSON.stringify(userEntry), {
-      expirationTtl: 86400
-    });
-    
-    // Remove from queue list
-    const listKey = `queue:list:${clinic}`;
-    let queueList = await env.KV_QUEUES.get(listKey, 'json') || [];
-    queueList = queueList.filter(item => item.user !== patientId);
-    await env.KV_QUEUES.put(listKey, JSON.stringify(queueList), {
       expirationTtl: 86400
     });
     
@@ -95,12 +95,18 @@ export async function onRequest(context) {
       clinic: clinic,
       queueNumber: parseInt(queueNumber),
       duration: durationMinutes,
-      pinVerified: true
+      pinVerified: true,
+      details: {
+        entered_count: counters.entered,
+        exited_count: counters.exited,
+        waiting_count: waiting
+      }
     });
     
     // ============================================================
-    // STEP 4: Update statistics
+    // UPDATE STATISTICS
     // ============================================================
+    const today = new Date().toISOString().split('T')[0];
     const statsKey = `stats:clinic:${clinic}:${today}`;
     let stats = await env.KV_ADMIN.get(statsKey, 'json') || {
       clinic: clinic,
@@ -117,15 +123,12 @@ export async function onRequest(context) {
     stats.last_updated = exitTime;
     
     await env.KV_ADMIN.put(statsKey, JSON.stringify(stats), {
-      expirationTtl: 86400 * 7 // Keep for 7 days
+      expirationTtl: 86400 * 7
     });
     
     // ============================================================
-    // STEP 5: Use validated patient path
+    // FIND NEXT CLINIC
     // ============================================================
-    // patientPath already validated and loaded
-    
-    // Find current clinic index in route
     const currentIndex = patientPath.route.indexOf(clinic);
     if (currentIndex === -1) {
       return jsonResponse({ 
@@ -135,31 +138,17 @@ export async function onRequest(context) {
       }, 400);
     }
     
-    // Check if there's a next clinic
     const hasNextClinic = currentIndex < patientPath.route.length - 1;
     
     if (!hasNextClinic) {
-      // Last clinic - mark journey as complete
+      // Last clinic
       patientPath.status = 'COMPLETED';
       patientPath.completed_at = exitTime;
+      
+      const pathKey = `path:${patientId}`;
       await env.KV_ADMIN.put(pathKey, JSON.stringify(patientPath), {
         expirationTtl: 86400
       });
-      
-      // Log completion event
-      const completionEvent = {
-        type: 'JOURNEY_COMPLETED',
-        patientId: patientId,
-        completed_at: exitTime,
-        total_clinics: patientPath.route.length,
-        route: patientPath.route
-      };
-      
-      await env.KV_EVENTS.put(
-        `event:completion:${patientId}:${Date.now()}`,
-        JSON.stringify(completionEvent),
-        { expirationTtl: 86400 }
-      );
       
       return jsonResponse({
         success: true,
@@ -168,81 +157,79 @@ export async function onRequest(context) {
         journey_completed: true,
         message: 'تم إنهاء جميع الفحوصات بنجاح',
         total_clinics_completed: patientPath.route.length,
-        duration_minutes: durationMinutes
+        duration_minutes: durationMinutes,
+        counters: {
+          entered: counters.entered,
+          exited: counters.exited,
+          waiting: waiting
+        }
       });
     }
     
     // ============================================================
-    // STEP 6: Get next clinic and enter queue automatically
+    // AUTO-ENTER NEXT CLINIC
     // ============================================================
     const nextClinic = patientPath.route[currentIndex + 1];
     
-    // Enter next clinic queue automatically
-    const nextListKey = `queue:list:${nextClinic}`;
-    let nextQueueList = await env.KV_QUEUES.get(nextListKey, 'json') || [];
+    // Get next clinic counters
+    const nextCounterKey = `counter:${nextClinic}`;
+    let nextCounters = await env.KV_QUEUES.get(nextCounterKey, 'json') || {
+      clinic: nextClinic,
+      entered: 0,
+      exited: 0,
+      reset_at: exitTime
+    };
     
-    // Check if already in next queue
-    const alreadyInNext = nextQueueList.find(item => item.user === patientId);
+    // Check if already entered
+    const nextUserKey = `queue:user:${nextClinic}:${patientId}`;
+    const nextExisting = await env.KV_QUEUES.get(nextUserKey, 'json');
+    
     let nextQueueNumber;
     
-    if (alreadyInNext) {
-      nextQueueNumber = alreadyInNext.number;
+    if (nextExisting && nextExisting.status !== 'DONE') {
+      nextQueueNumber = nextExisting.number;
     } else {
-      // Assign new queue number
-      nextQueueNumber = nextQueueList.length + 1;
+      // Increment counter
+      nextCounters.entered += 1;
+      nextQueueNumber = nextCounters.entered;
       
-      const nextQueueEntry = {
-        number: nextQueueNumber,
-        user: patientId,
-        entered_at: exitTime,
-        status: 'WAITING',
-        auto_entered: true,
-        previous_clinic: clinic
-      };
-      
-      nextQueueList.push(nextQueueEntry);
-      
-      await env.KV_QUEUES.put(nextListKey, JSON.stringify(nextQueueList), {
+      await env.KV_QUEUES.put(nextCounterKey, JSON.stringify(nextCounters), {
         expirationTtl: 86400
       });
       
-      // Save user entry for next clinic
-      const nextUserKey = `queue:user:${nextClinic}:${patientId}`;
+      // Save user entry
       const nextUserEntry = {
         number: nextQueueNumber,
         status: 'WAITING',
         entered_at: exitTime,
         entry_time: exitTime,
-        user: patientId,
         clinic: nextClinic,
-        auto_entered: true
+        user: patientId,
+        auto_entered: true,
+        previous_clinic: clinic
       };
       
       await env.KV_QUEUES.put(nextUserKey, JSON.stringify(nextUserEntry), {
         expirationTtl: 86400
       });
       
-      // Update stats for next clinic
-      const nextStatsKey = `stats:clinic:${nextClinic}:${today}`;
-      let nextStats = await env.KV_ADMIN.get(nextStatsKey, 'json') || {
+      // Log auto-enter
+      await logActivity(env, 'ENTER', {
+        patientId: patientId,
         clinic: nextClinic,
-        date: today,
-        total_entered: 0,
-        total_completed: 0,
-        total_duration_minutes: 0,
-        avg_duration_minutes: 0
-      };
-      
-      nextStats.total_entered += 1;
-      nextStats.last_updated = exitTime;
-      
-      await env.KV_ADMIN.put(nextStatsKey, JSON.stringify(nextStats), {
-        expirationTtl: 86400 * 7
+        queueNumber: nextQueueNumber,
+        details: {
+          auto_entered: true,
+          previous_clinic: clinic,
+          entered_count: nextCounters.entered,
+          exited_count: nextCounters.exited,
+          waiting_count: nextCounters.entered - nextCounters.exited
+        }
       });
     }
     
     // ============================================================
-    // STEP 7: Update patient path progress
+    // UPDATE PATIENT PATH
     // ============================================================
     if (!patientPath.progress) {
       patientPath.progress = [];
@@ -266,7 +253,7 @@ export async function onRequest(context) {
     });
     
     // ============================================================
-    // STEP 8: Create notification event
+    // CREATE NOTIFICATION
     // ============================================================
     const notificationEvent = {
       type: 'CLINIC_COMPLETED_NEXT',
@@ -281,13 +268,11 @@ export async function onRequest(context) {
     await env.KV_EVENTS.put(
       `event:notification:${patientId}:${Date.now()}`,
       JSON.stringify(notificationEvent),
-      { expirationTtl: 3600 } // 1 hour
+      { expirationTtl: 3600 }
     );
     
-    // ============================================================
-    // STEP 9: Return complete response
-    // ============================================================
     const remainingClinics = patientPath.route.length - (currentIndex + 1) - 1;
+    const nextWaiting = nextCounters.entered - nextCounters.exited;
     
     return jsonResponse({
       success: true,
@@ -296,7 +281,6 @@ export async function onRequest(context) {
       duration_minutes: durationMinutes,
       next_clinic: nextClinic,
       next_queue_number: nextQueueNumber,
-      ahead_in_next: nextQueueNumber - 1,
       remaining_clinics: remainingClinics,
       total_progress: `${currentIndex + 1}/${patientPath.route.length}`,
       notification: {
@@ -304,6 +288,16 @@ export async function onRequest(context) {
         message: `توجه إلى ${nextClinic}`,
         queue_number: nextQueueNumber,
         clinic: nextClinic
+      },
+      current_clinic_counters: {
+        entered: counters.entered,
+        exited: counters.exited,
+        waiting: waiting
+      },
+      next_clinic_counters: {
+        entered: nextCounters.entered,
+        exited: nextCounters.exited,
+        waiting: nextWaiting
       },
       stats_updated: true,
       auto_entered_next: true
@@ -318,7 +312,6 @@ export async function onRequest(context) {
   }
 }
 
-// Handle OPTIONS for CORS
 export async function onRequestOptions() {
   return corsResponse(['POST', 'OPTIONS']);
 }

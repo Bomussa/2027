@@ -1,5 +1,8 @@
-// Queue Enter - Simple and Accurate
-// Each clinic has independent queue starting from 1
+// Queue Enter V2 - Counter-based system
+// POST /api/v1/queue/enter
+// Sequential numbers that never decrease
+// Database counts: entered, exited
+// Display: entered - exited = waiting
 
 import { jsonResponse, corsResponse, validateRequiredFields, checkKVAvailability } from '../../../_shared/utils.js';
 import { logActivity } from '../../../_shared/activity-logger.js';
@@ -16,13 +19,11 @@ export async function onRequest(context) {
     const body = await request.json();
     const { clinic, user } = body;
     
-    // Validate required fields
     const validationError = validateRequiredFields(body, ['clinic', 'user']);
     if (validationError) {
       return jsonResponse(validationError, 400);
     }
     
-    // Check KV availability
     const kvError = checkKVAvailability(env.KV_QUEUES, 'KV_QUEUES');
     if (kvError) {
       return jsonResponse(kvError, 500);
@@ -39,82 +40,76 @@ export async function onRequest(context) {
       }, validation.code === 'PATIENT_NOT_FOUND' ? 404 : 403);
     }
     
-    const kv = env.KV_QUEUES;
     const now = new Date();
     const entryTime = now.toISOString();
     
-    // Get current queue list for this clinic
-    const listKey = `queue:list:${clinic}`;
-    let queueList = await kv.get(listKey, 'json') || [];
+    // ============================================================
+    // COUNTER-BASED SYSTEM
+    // ============================================================
     
-    // Check if user already in queue
-    const existingIndex = queueList.findIndex(item => item.user === user);
-    if (existingIndex !== -1) {
-      // User already in queue - return existing position
-      const existing = queueList[existingIndex];
-      const position = existingIndex + 1;
+    // Get clinic counters
+    const counterKey = `counter:${clinic}`;
+    let counters = await env.KV_QUEUES.get(counterKey, 'json') || {
+      clinic: clinic,
+      entered: 0,
+      exited: 0,
+      reset_at: entryTime
+    };
+    
+    // Check if patient already entered
+    const userKey = `queue:user:${clinic}:${user}`;
+    const existingEntry = await env.KV_QUEUES.get(userKey, 'json');
+    
+    if (existingEntry && existingEntry.status !== 'DONE') {
+      // Already in queue
+      const waiting = counters.entered - counters.exited;
       
       return jsonResponse({
         success: true,
         clinic: clinic,
         user: user,
-        number: existing.number,
-        status: 'WAITING',
-        display_number: position,
-        ahead: position - 1,
-        total_waiting: queueList.length,
-        entry_time: existing.entered_at,
+        number: existingEntry.number,
+        status: existingEntry.status,
+        entry_time: existingEntry.entered_at,
+        waiting_count: waiting,
         message: 'Already in queue'
       });
     }
     
-    // Assign new queue number (sequential for this clinic)
-    const newNumber = queueList.length + 1;
+    // Increment entered counter
+    counters.entered += 1;
+    const assignedNumber = counters.entered;
     
-    // Add to queue list
-    const queueEntry = {
-      number: newNumber,
-      user: user,
-      entered_at: entryTime,
-      status: 'WAITING'
-    };
-    
-    queueList.push(queueEntry);
-    
-    // Save queue list
-    await kv.put(listKey, JSON.stringify(queueList), {
+    // Save counters
+    await env.KV_QUEUES.put(counterKey, JSON.stringify(counters), {
       expirationTtl: 86400
     });
     
     // Save user entry
-    const userKey = `queue:user:${clinic}:${user}`;
     const userEntry = {
-      number: newNumber,
+      number: assignedNumber,
       status: 'WAITING',
       entered_at: entryTime,
-      entry_time: entryTime,
-      user: user,
-      clinic: clinic
+      clinic: clinic,
+      user: user
     };
     
-    await kv.put(userKey, JSON.stringify(userEntry), {
+    await env.KV_QUEUES.put(userKey, JSON.stringify(userEntry), {
       expirationTtl: 86400
     });
     
-    // Calculate position
-    const myPosition = queueList.length;
-    const ahead = myPosition - 1;
-    const totalWaiting = queueList.length;
+    // Calculate waiting count
+    const waiting = counters.entered - counters.exited;
     
     // Log activity
     await logActivity(env, 'ENTER', {
       patientId: user,
       clinic: clinic,
-      queueNumber: newNumber,
+      queueNumber: assignedNumber,
       details: {
-        position: myPosition,
-        ahead: ahead,
-        total_waiting: totalWaiting
+        entered_count: counters.entered,
+        exited_count: counters.exited,
+        waiting_count: waiting
       }
     });
     
@@ -122,12 +117,14 @@ export async function onRequest(context) {
       success: true,
       clinic: clinic,
       user: user,
-      number: newNumber,
+      number: assignedNumber,
       status: 'WAITING',
-      display_number: myPosition,
-      ahead: ahead,
-      total_waiting: totalWaiting,
-      entry_time: entryTime
+      entry_time: entryTime,
+      counters: {
+        entered: counters.entered,
+        exited: counters.exited,
+        waiting: waiting
+      }
     });
     
   } catch (error) {
@@ -139,7 +136,6 @@ export async function onRequest(context) {
   }
 }
 
-// Handle OPTIONS for CORS
 export async function onRequestOptions() {
   return corsResponse(['POST', 'OPTIONS']);
 }

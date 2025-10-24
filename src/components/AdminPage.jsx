@@ -4,6 +4,7 @@ import { Button } from './Button'
 import { Input } from './Input'
 import { EnhancedAdminDashboard } from './EnhancedAdminDashboard'
 import { ClinicsConfiguration } from './ClinicsConfiguration'
+import { SystemSettingsPanel } from './SystemSettingsPanel'
 import {
   BarChart3,
   Users,
@@ -601,12 +602,18 @@ export function AdminPage({ onLogout, language, toggleLanguage, currentTheme, on
   )
 
   const renderSettings = () => {
-    
-
     return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-white">إعدادات النظام</h1>
+          <h1 className="text-2xl font-bold text-white">إعدادات النظام المتقدمة</h1>
+        </div>
+        
+        {/* لوحة الإعدادات المتقدمة */}
+        <SystemSettingsPanel language={language} />
+        
+        {/* إعدادات المظهر */}
+        <div className="mt-6">
+          <h2 className="text-xl font-bold text-white mb-4">إعدادات المظهر</h2>
         </div>
 
         {/* General Settings */}

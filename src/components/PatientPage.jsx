@@ -11,6 +11,7 @@ import api from '../lib/api'
 import enhancedApi from '../lib/enhanced-api'
 import { ZFDTicketDisplay, ZFDBanner } from './ZFDTicketDisplay'
 import NotificationSystem from './NotificationSystem'
+import { CountdownTimer } from './CountdownTimer'
 import eventBus from '../core/event-bus'
 
 export function PatientPage({ patientData, onLogout, language, toggleLanguage }) {
@@ -23,6 +24,65 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
   const [currentNotice, setCurrentNotice] = useState(null)
   const [routeWithZFD, setRouteWithZFD] = useState(null)
   const [queuePositions, setQueuePositions] = useState({}) // Real-time queue positions
+
+  // دخول تلقائي للعيادة الأولى
+  const handleAutoEnterFirstClinic = async (station) => {
+    try {
+      // دخول الدور
+      await api.enterQueue(station.id, patientData.id, true)
+      
+      // جلب الموقع الفعلي من Backend
+      const positionData = await api.getQueuePosition(station.id, patientData.id)
+      
+      if (positionData && positionData.success) {
+        setActiveTicket({ clinicId: station.id, ticket: positionData.display_number })
+        setStations(prev => prev.map((s, idx) => idx === 0 ? {
+          ...s,
+          yourNumber: positionData.display_number,
+          ahead: positionData.ahead,
+          totalWaiting: positionData.total_waiting,
+          status: 'ready',
+          isEntered: true,
+          entered_at: positionData.entered_at || new Date().toISOString() // حفظ وقت الدخول
+        } : s))
+      }
+    } catch (e) {
+      console.error('Auto-enter first clinic failed:', e)
+      // في حالة الفشل، لا نعطي أي رقم افتراضي
+      console.error('Cannot enter clinic without backend connection')
+    }
+  }
+
+  // دخول يدوي لأي عيادة
+  const handleEnterClinic = async (station) => {
+    try {
+      setLoading(true)
+      // دخول الدور
+      await api.enterQueue(station.id, patientData.id, true)
+      
+      // جلب الموقع الفعلي من Backend
+      const positionData = await api.getQueuePosition(station.id, patientData.id)
+      
+      if (positionData && positionData.success) {
+        setActiveTicket({ clinicId: station.id, ticket: positionData.display_number })
+        setStations(prev => prev.map(s => s.id === station.id ? {
+          ...s,
+          yourNumber: positionData.display_number,
+          ahead: positionData.ahead,
+          totalWaiting: positionData.total_waiting,
+          status: 'ready',
+          isEntered: true,
+          entered_at: positionData.entered_at || new Date().toISOString() // حفظ وقت الدخول
+        } : s))
+      }
+      
+      setLoading(false)
+    } catch (e) {
+      console.error('Enter clinic failed:', e)
+      alert(language === 'ar' ? 'فشل الدخول للعيادة. الرجاء المحاولة مرة أخرى.' : 'Failed to enter clinic. Please try again.')
+      setLoading(false)
+    }
+  }
 
   // جلب أرقام البن كود اليومية من API
   useEffect(() => {
@@ -121,63 +181,6 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
     
     loadPathway()
   }, [patientData.queueType, patientData.gender])
-
-  // دخول يدوي لأي عيادة
-  const handleEnterClinic = async (station) => {
-    try {
-      setLoading(true)
-      // دخول الدور
-      await api.enterQueue(station.id, patientData.id, true)
-      
-      // جلب الموقع الفعلي من Backend
-      const positionData = await api.getQueuePosition(station.id, patientData.id)
-      
-      if (positionData && positionData.success) {
-        setActiveTicket({ clinicId: station.id, ticket: positionData.display_number })
-        setStations(prev => prev.map(s => s.id === station.id ? {
-          ...s,
-          yourNumber: positionData.display_number,
-          ahead: positionData.ahead,
-          totalWaiting: positionData.total_waiting,
-          status: 'ready',
-          isEntered: true
-        } : s))
-      }
-      
-      setLoading(false)
-    } catch (e) {
-      console.error('Enter clinic failed:', e)
-      alert(language === 'ar' ? 'فشل الدخول للعيادة. الرجاء المحاولة مرة أخرى.' : 'Failed to enter clinic. Please try again.')
-      setLoading(false)
-    }
-  }
-
-  // دخول تلقائي للعيادة الأولى
-  const handleAutoEnterFirstClinic = async (station) => {
-    try {
-      // دخول الدور
-      await api.enterQueue(station.id, patientData.id, true)
-      
-      // جلب الموقع الفعلي من Backend
-      const positionData = await api.getQueuePosition(station.id, patientData.id)
-      
-      if (positionData && positionData.success) {
-        setActiveTicket({ clinicId: station.id, ticket: positionData.display_number })
-        setStations(prev => prev.map((s, idx) => idx === 0 ? {
-          ...s,
-          yourNumber: positionData.display_number,
-          ahead: positionData.ahead,
-          totalWaiting: positionData.total_waiting,
-          status: 'ready',
-          isEntered: true
-        } : s))
-      }
-    } catch (e) {
-      console.error('Auto-enter first clinic failed:', e)
-      // في حالة الفشل، لا نعطي أي رقم افتراضي
-      console.error('Cannot enter clinic without backend connection')
-    }
-  }
 
   // Fetch route with ZFD validation
   useEffect(() => {
@@ -680,16 +683,33 @@ export function PatientPage({ patientData, onLogout, language, toggleLanguage })
                   </div>
                   
                   {station.isEntered && (
-                    <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-300">
-                          🕒 {language === 'ar' ? 'الوقت المتوقع:' : 'Est. Wait:'}
-                        </span>
-                        <span className="text-blue-400 font-bold">
-                          {station.ahead ? `~${station.ahead * 5} ${language === 'ar' ? 'دقيقة' : 'min'}` : language === 'ar' ? 'دورك الآن!' : 'Your turn!'}
-                        </span>
+                    <>
+                      {/* عرض العد التنازلي */}
+                      {station.entered_at && (
+                        <div className="mt-3">
+                          <CountdownTimer
+                            enteredAt={station.entered_at}
+                            maxSeconds={240}
+                            show={true}
+                            language={language}
+                            onTimeout={() => {
+                              console.log('Timeout for station:', station.id)
+                            }}
+                          />
+                        </div>
+                      )}
+                      
+                      <div className="mt-3 p-3 bg-blue-500/10 border border-blue-500/30 rounded">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-300">
+                            🕒 {language === 'ar' ? 'الوقت المتوقع:' : 'Est. Wait:'}
+                          </span>
+                          <span className="text-blue-400 font-bold">
+                            {station.ahead ? `~${station.ahead * 5} ${language === 'ar' ? 'دقيقة' : 'min'}` : language === 'ar' ? 'دورك الآن!' : 'Your turn!'}
+                          </span>
+                        </div>
                       </div>
-                    </div>
+                    </>
                   )}
 
                   {station.status === 'ready' && !station.isEntered && (

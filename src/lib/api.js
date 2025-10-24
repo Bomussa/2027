@@ -604,6 +604,45 @@ class ApiService {
 
     return ws
   }
+
+  // ==========================================
+  // System Settings APIs
+  // ==========================================
+
+  /**
+   * الحصول على إعدادات النظام
+   * Backend: GET /api/v1/admin/system-settings
+   * Response: { success, settings: {...} }
+   */
+  async getSystemSettings() {
+    return this.request(`${API_VERSION}/admin/system-settings`, {
+      method: 'GET'
+    })
+  }
+
+  /**
+   * تحديث إعدادات النظام
+   * Backend: POST /api/v1/admin/system-settings
+   * Body: { settings: {...} }
+   * Response: { success, message }
+   */
+  async updateSystemSettings(settings) {
+    return this.request(`${API_VERSION}/admin/system-settings`, {
+      method: 'POST',
+      body: JSON.stringify({ settings })
+    })
+  }
+
+  /**
+   * إعادة تعيين الإعدادات للقيم الافتراضية
+   * Backend: POST /api/v1/admin/system-settings/reset
+   * Response: { success, settings: {...} }
+   */
+  async resetSystemSettings() {
+    return this.request(`${API_VERSION}/admin/system-settings/reset`, {
+      method: 'POST'
+    })
+  }
 }
 
 const api = new ApiService()

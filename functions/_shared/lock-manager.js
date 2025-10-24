@@ -10,7 +10,7 @@
  * @param {number} retryDelay - Delay between retries in ms (default: 100)
  * @returns {Promise<{acquired: boolean, lockId: string}>}
  */
-export async function acquireLock(kv, key, ttl = 5, maxRetries = 10, retryDelay = 100) {
+export async function acquireLock(kv, key, ttl = 60, maxRetries = 10, retryDelay = 100) {
   const lockKey = `lock:${key}`;
   const lockId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
   
@@ -28,7 +28,7 @@ export async function acquireLock(kv, key, ttl = 5, maxRetries = 10, retryDelay 
         };
         
         await kv.put(lockKey, JSON.stringify(lockData), {
-          expirationTtl: ttl
+          expirationTtl: Math.max(60, ttl) // Cloudflare KV requires minimum 60 seconds
         });
         
         // Verify we got the lock (double-check)

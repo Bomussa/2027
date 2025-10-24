@@ -250,22 +250,25 @@ export function EnhancedAdminDashboard({ language, onLogout }) {
           </Card>
         </div>
 
-        {/* Enhanced Monitoring Sections */}
+        {/* Enhanced Monitoring Sections - TEMPORARILY DISABLED FOR DEBUGGING */}
+        {/*
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
-          {/* PIN Monitor for Clinic 1 */}
           <div data-test="admin-pin-section">
             <AdminPINMonitor clinicId="clinic1" autoRefresh={false} />
           </div>
-
-          {/* Queue Monitor for Clinic 1 */}
           <div data-test="admin-queue-section">
             <AdminQueueMonitor clinicId="clinic1" autoRefresh={true} refreshInterval={5000} />
           </div>
         </div>
-
-        {/* QR Code Manager */}
         <div className="mb-8" data-test="admin-qr-section">
           <AdminQrManager language={language} />
+        </div>
+        */}
+        
+        {/* DEBUG: Simple placeholder */}
+        <div className="mb-8 p-6 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <p className="text-yellow-800 font-medium">🔧 وضع التصحيح: المكونات المحسنة معطلة مؤقتاً</p>
+          <p className="text-yellow-600 text-sm mt-2">يتم عرض البيانات الأساسية فقط حالياً</p>
         </div>
 
         {/* Main Content */}

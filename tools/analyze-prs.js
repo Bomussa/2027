@@ -109,29 +109,29 @@ function isOutdated(pr) {
 }
 
 /**
- * Categorizes PRs by their primary focus
+ * Categorizes PRs by their primary focus using explicit priority and keyword configuration
  */
 function categorizePR(pr) {
   const title = pr.title.toLowerCase();
   const body = (pr.body || '').toLowerCase();
   const combined = title + ' ' + body;
 
-  if (combined.includes('device compatibility') || combined.includes('ios') || combined.includes('android')) {
-    return 'device-compatibility';
+  // Configuration object: category -> keywords (priority = order)
+  const CATEGORY_KEYWORDS = [
+    { name: 'device-compatibility', keywords: ['device compatibility', 'ios', 'android'] },
+    { name: 'frontend-deployment', keywords: ['frontend', 'react', 'deploy', 'vite', 'cloudflare pages'] },
+    { name: 'ci-cd', keywords: ['ci/cd', 'github actions', 'workflow', 'cloudflare pages'] },
+    { name: 'merge-conflict', keywords: ['merge conflict'] },
+    { name: 'copilot-setup', keywords: ['copilot instructions'] }
+  ];
+
+  for (const category of CATEGORY_KEYWORDS) {
+    for (const keyword of category.keywords) {
+      if (combined.includes(keyword)) {
+        return category.name;
+      }
+    }
   }
-  if (combined.includes('frontend') || combined.includes('react') || combined.includes('deploy') || combined.includes('vite')) {
-    return 'frontend-deployment';
-  }
-  if (combined.includes('ci/cd') || combined.includes('github actions') || combined.includes('workflow') || combined.includes('cloudflare pages')) {
-    return 'ci-cd';
-  }
-  if (combined.includes('merge conflict')) {
-    return 'merge-conflict';
-  }
-  if (combined.includes('copilot instructions')) {
-    return 'copilot-setup';
-  }
-  
   return 'other';
 }
 
